@@ -328,9 +328,9 @@ function GameScreen({ room }: { room: RoomState }) {
   const visibleBonus = s.bonusKeywords.slice(0, d.revealedBonus);
 
   return (
-    <motion.section {...fade} className="relative min-h-screen px-6 py-20">
-      <header className="flex items-center justify-between max-w-6xl mx-auto">
-        <div className="flex gap-6 flex-wrap">
+    <motion.section {...fade} className="relative min-h-screen px-4 sm:px-6 py-16 sm:py-20">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-6xl mx-auto">
+        <div className="order-2 sm:order-1 flex gap-2 sm:gap-6 flex-wrap justify-center sm:justify-start">
           {room.mode === "team" ? (
             <>
               <ScoreBox label="Team 1" score={room.scores[0]} accent="text-crimson" winner={room.winner === 0} />
@@ -348,14 +348,14 @@ function GameScreen({ room }: { room: RoomState }) {
             ))
           )}
         </div>
-        <div className="text-center">
+        <div className="order-1 sm:order-2 text-center">
           <div className="text-parchment/60 text-xs uppercase tracking-widest">Time</div>
-          <div className="text-4xl text-accent font-display">{mm}:{ss}</div>
+          <div className="text-4xl sm:text-5xl text-accent font-display tabular-nums">{mm}:{ss}</div>
           <div className="text-parchment/40 text-[10px] uppercase tracking-widest">{d.phase}</div>
         </div>
       </header>
 
-      <section className="mt-10 max-w-3xl mx-auto card">
+      <section className="mt-6 sm:mt-10 max-w-3xl mx-auto card">
         <div className="text-accent text-xs uppercase tracking-widest">Case Briefing</div>
         <p className="mt-2 text-parchment/90 italic">{s.briefing}</p>
         <p className="mt-3 text-parchment/80">
@@ -364,7 +364,7 @@ function GameScreen({ room }: { room: RoomState }) {
         </p>
       </section>
 
-      <section className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+      <section className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-5xl mx-auto">
         {s.photos.map((p, i) => (
           <div key={i} className="card flex flex-col items-center">
             <div className="w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-parchment/15 to-parchment/5 border border-parchment/15">
@@ -432,9 +432,9 @@ function ScoreBox({
   winner: boolean;
 }) {
   return (
-    <div className={"card min-w-[120px] text-center " + (winner ? "ring-2 ring-accent" : "")}>
-      <div className={"text-xs uppercase tracking-widest " + accent}>{label}</div>
-      <div className="text-3xl font-display">{score}</div>
+    <div className={"card !p-3 min-w-[88px] sm:min-w-[120px] text-center " + (winner ? "ring-2 ring-accent" : "")}>
+      <div className={"text-[10px] sm:text-xs uppercase tracking-widest truncate max-w-[120px] " + accent}>{label}</div>
+      <div className="text-2xl sm:text-3xl font-display tabular-nums">{score}</div>
     </div>
   );
 }
