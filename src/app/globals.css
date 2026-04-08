@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+  background: radial-gradient(ellipse at top, #181828 0%, #0b0b10 60%, #050507 100%);
+  color: #f5efe1;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+.btn-primary {
+  @apply px-8 py-4 rounded-full bg-accent text-ink font-semibold tracking-wide shadow-glow hover:scale-105 active:scale-95 transition;
+}
+.btn-ghost {
+  @apply px-5 py-2 rounded-full border border-parchment/40 text-parchment/90 hover:bg-parchment/10 transition;
+}
+.btn-pill {
+  @apply px-4 py-2 rounded-full bg-parchment/10 hover:bg-parchment/20 border border-parchment/20 text-parchment text-sm transition;
+}
+.card {
+  @apply rounded-2xl border border-parchment/15 bg-parchment/5 backdrop-blur-sm p-4;
+}
+
+.fade-enter { opacity: 0; }
+.fade-enter-active { opacity: 1; transition: opacity 500ms; }
+.fade-exit { opacity: 1; }
+.fade-exit-active { opacity: 0; transition: opacity 500ms; }

@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateScenario } from "@/lib/anthropic";
+import { generateImageWithTimeout } from "@/lib/openai";
+import { getRoom, setGenre, setScenario } from "@/lib/rooms";
+import { pushState } from "@/lib/pusher";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Vercel: allow longer generation
+
+export async function POST(req: NextRequest) {
+  try {
+    const { code, genre, playerId } = await req.json();
+    if (!code || !genre)
+      return NextResponse.json({ error: "code + genre required" }, { status: 400 });
+    const upper = String(code).toUpperCase();
+    const r0 = await getRoom(upper);
+    if (!r0) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    if (r0.hostId !== playerId)
+      return NextResponse.json({ error: "Only host can start" }, { status: 403 });
+
+    await setGenre(upper, genre);
+
+    const scenario = await generateScenario(genre);
+
+    // 5-second per-image budget. Whatever wins gets attached; null becomes a placeholder.
+    const enriched = {
+      ...scenario,
+      photos: await Promise.all(
+        scenario.photos.map(async (p) => {
+          const url = await generateImageWithTimeout(p.prompt, 5000);
+          return { ...p, imageUrl: url };
+        })
+      ),
+    };
+
+    const room = await setScenario(upper, enriched);
+    if (room) await pushState(room.code, room);
+    return NextResponse.json({ room });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+  }
+}
