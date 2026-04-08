@@ -132,6 +132,18 @@ export async function setScenario(code: string, scenario: Scenario) {
   });
 }
 
+export async function updatePhotoImage(
+  code: string,
+  photoIndex: number,
+  imageUrl: string
+) {
+  return update(code, (r) => {
+    if (r.scenario && r.scenario.photos[photoIndex]) {
+      r.scenario.photos[photoIndex].imageUrl = imageUrl;
+    }
+  });
+}
+
 export async function pushActivity(code: string, text: string) {
   return update(code, (r) => {
     const e: ActivityEntry = { id: rid(), ts: Date.now(), text };

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateScenario } from "@/lib/anthropic";
-import { generateImageWithTimeout } from "@/lib/openai";
 import { getRoom, setGenre, setScenario } from "@/lib/rooms";
 import { pushState } from "@/lib/pusher";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // Vercel: allow longer generation
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,20 +20,10 @@ export async function POST(req: NextRequest) {
 
     await setGenre(upper, genre);
 
+    // Text-only — images are generated per-photo via /api/room/image after this returns.
     const scenario = await generateScenario(genre);
 
-    // 5-second per-image budget. Whatever wins gets attached; null becomes a placeholder.
-    const enriched = {
-      ...scenario,
-      photos: await Promise.all(
-        scenario.photos.map(async (p) => {
-          const url = await generateImageWithTimeout(p.prompt, 5000);
-          return { ...p, imageUrl: url };
-        })
-      ),
-    };
-
-    const room = await setScenario(upper, enriched);
+    const room = await setScenario(upper, scenario);
     if (room) await pushState(room.code, room);
     return NextResponse.json({ room });
   } catch (e: any) {

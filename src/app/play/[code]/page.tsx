@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { api, apiGet, getPlayerId, speakOpenAI, subscribeRoom } from "@/lib/client";
-import { derivePhase } from "@/lib/phase";
+import { derivePhase, fmt, type TimerDisplay } from "@/lib/phase";
 import type { RoomState } from "@/types/game";
 
 const fade = {
@@ -62,18 +62,20 @@ export default function PlayPage() {
     return () => subs.unsubscribe();
   }, [joined, code, room?.players.length, room?.mode]);
 
-  // Voice announcements
+  // Voice announcements (keyed by timer.kind so they fire exactly once per transition)
   useEffect(() => {
     if (!room || !joined) return;
     const d = derivePhase(room, now);
-    const key = d.phase + ":" + d.revealedBonus;
+    const key = d.timer.kind + (d.timer.kind === "bonus_reveal" ? String(d.timer.nth) : "");
     if (announcedRef.current.has(key)) return;
     announcedRef.current.add(key);
-    if (room.storedPhase === "playing" && d.phase === "thinking")
-      speakOpenAI("Five minute countdown begins now.");
-    if (d.phase === "active") speakOpenAI("You may now ask questions and attempt answers.");
-    if (d.phase === "bonus1") speakOpenAI("A bonus keyword is now revealed.");
-    if (d.phase === "bonus2") speakOpenAI("The final bonus keyword is now revealed.");
+    if (d.timer.kind === "thinking") speakOpenAI("Five minute countdown begins now.");
+    if (d.timer.kind === "next_keyword" && d.timer.nth === 1)
+      speakOpenAI("You may now ask questions and attempt answers.");
+    if (d.timer.kind === "bonus_reveal" && d.timer.nth === 1)
+      speakOpenAI(`An additional keyword is now revealed: ${d.timer.keyword}.`);
+    if (d.timer.kind === "bonus_reveal" && d.timer.nth === 2)
+      speakOpenAI(`The final keyword is now revealed: ${d.timer.keyword}.`);
   }, [room, joined, now]);
 
   if (!joined) {
@@ -114,7 +116,7 @@ export default function PlayPage() {
   const me = room.players.find((p) => p.id === playerId);
   const myTeam = me?.team;
   const d = derivePhase(room, now);
-  const buttonsActive = room.storedPhase === "playing" && d.phase !== "thinking";
+  const buttonsActive = d.buttonsUnlocked;
 
   return (
     <div className="min-h-screen w-full px-5 py-6">
@@ -148,15 +150,34 @@ export default function PlayPage() {
         )}
 
         {(room.storedPhase === "playing" || room.storedPhase === "ended") && (
-          <motion.section key="game" {...fade} className="mt-2">
-            <div className="text-center">
-              <div className="text-parchment/50 text-xs uppercase tracking-widest">
+          <motion.section key="game" {...fade} className="mt-2 pb-4">
+            {/* Mini timer for phones */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-parchment/50 text-sm">
                 {room.mode === "solo" ? me?.name || "Player" : `Team ${myTeam == null ? "?" : myTeam + 1}`}
+                {" · "}
+                <span className="text-parchment/70">
+                  {room.mode === "solo" ? me?.score : (myTeam != null ? room.scores[myTeam] : "")} pts
+                </span>
               </div>
-              <div className="text-parchment/70 mt-1 text-sm">
-                {d.phase} · {room.mode === "solo" ? me?.score : (myTeam != null ? room.scores[myTeam] : "")} pts
-              </div>
+              <PlayerTimerBadge timer={d.timer} />
             </div>
+
+            {/* Bonus keyword badge */}
+            {d.revealedBonus > 0 && room.scenario && (
+              <div className="card mb-3 border-accent/50">
+                <div className="text-accent text-[10px] uppercase tracking-widest">
+                  {d.timer.kind === "bonus_reveal" && d.timer.nth === 1 ? "Bonus keyword revealed!" :
+                   d.timer.kind === "bonus_reveal" && d.timer.nth === 2 ? "Final keyword revealed!" :
+                   "Bonus keywords"}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {room.scenario.bonusKeywords.slice(0, d.revealedBonus).map((k) => (
+                    <span key={k} className="px-3 py-1 rounded-full bg-accent text-ink text-sm font-semibold">{k}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {room.scenario && (
               <div className="card mt-4">
@@ -262,4 +283,23 @@ export default function PlayPage() {
       </AnimatePresence>
     </div>
   );
+}
+
+function PlayerTimerBadge({ timer }: { timer: TimerDisplay }) {
+  if (timer.kind === "thinking")
+    return <span className="text-accent text-sm tabular-nums font-display">{fmt(timer.remainingMs)}</span>;
+  if (timer.kind === "next_keyword")
+    return (
+      <span className="text-parchment/70 text-xs text-right">
+        Next keyword in<br />
+        <span className="text-parchment font-display tabular-nums">{fmt(timer.remainingMs)}</span>
+      </span>
+    );
+  if (timer.kind === "bonus_reveal")
+    return (
+      <span className="text-accent text-xs animate-pulse">
+        {timer.nth === 1 ? "Bonus keyword!" : "Final keyword!"}
+      </span>
+    );
+  return null;
 }

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { GENRES } from "@/lib/genres";
-import { derivePhase } from "@/lib/phase";
+import { derivePhase, fmt } from "@/lib/phase";
 import type { Mode, RoomState } from "@/types/game";
 import { api, getPlayerId, speakOpenAI, subscribeRoom } from "@/lib/client";
 import ParticipantsModal from "@/components/ParticipantsModal";
@@ -16,15 +16,22 @@ const fade = {
   transition: { duration: 0.5 },
 };
 
+type LoadStep =
+  | { status: "idle" }
+  | { status: "scenario"; label: string }
+  | { status: "images"; done: number; total: number }
+  | { status: "ready" };
+
 export default function HostPage() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [qr, setQr] = useState<string>("");
   const [editOpen, setEditOpen] = useState(false);
-  const [genreLoading, setGenreLoading] = useState(false);
+  const [loadStep, setLoadStep] = useState<LoadStep>({ status: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("team");
   const announcedRef = useRef<Set<string>>(new Set());
+  const imgLoadedRef = useRef(false); // prevent double-triggering
 
   // Create the room on mount.
   useEffect(() => {
@@ -72,6 +79,42 @@ export default function HostPage() {
     return () => clearInterval(t);
   }, [room]);
 
+  // Kick off per-photo image loading once the scenario is in KV.
+  useEffect(() => {
+    if (!room?.scenario || room.storedPhase !== "playing") return;
+    if (imgLoadedRef.current) return;
+    imgLoadedRef.current = true;
+
+    const photos = room.scenario.photos;
+    const needsLoad = photos.filter((p) => !p.imageUrl);
+    if (needsLoad.length === 0) {
+      setLoadStep({ status: "ready" });
+      return;
+    }
+
+    let done = photos.filter((p) => p.imageUrl).length;
+    const total = photos.length;
+    setLoadStep({ status: "images", done, total });
+
+    photos.forEach((photo, idx) => {
+      if (photo.imageUrl) return; // already loaded
+      api("/api/room/image", { code: room.code, photoIndex: idx })
+        .then(() => {
+          done += 1;
+          if (done >= total) {
+            setLoadStep({ status: "ready" });
+          } else {
+            setLoadStep({ status: "images", done, total });
+          }
+        })
+        .catch(() => {
+          done += 1; // count failures so we don't get stuck
+          if (done >= total) setLoadStep({ status: "ready" });
+          else setLoadStep({ status: "images", done, total });
+        });
+    });
+  }, [room?.storedPhase, room?.code]);
+
   if (!room) {
     return (
       <main className="min-h-screen flex items-center justify-center text-parchment/70">
@@ -114,18 +157,19 @@ export default function HostPage() {
             selected={selectedGenre}
             onSelect={(g) => setSelectedGenre(g)}
             onEdit={() => setEditOpen(true)}
-            loading={genreLoading}
+            loadStep={loadStep}
             error={error}
             onContinue={async () => {
               if (!selectedGenre) return;
-              setGenreLoading(true);
               setError(null);
+              imgLoadedRef.current = false;
               try {
+                setLoadStep({ status: "scenario", label: "Writing the case with Claude…" });
                 await api("/api/scenario", { code: room.code, genre: selectedGenre });
+                // Image loading kicks off from the useEffect below when storedPhase → "playing"
               } catch (e: any) {
                 setError(String(e.message || e));
-              } finally {
-                setGenreLoading(false);
+                setLoadStep({ status: "idle" });
               }
             }}
           />
@@ -265,7 +309,7 @@ function GenreScreen({
   onSelect,
   onEdit,
   onContinue,
-  loading,
+  loadStep,
   error,
 }: {
   room: RoomState;
@@ -273,9 +317,11 @@ function GenreScreen({
   onSelect: (g: string) => void;
   onEdit: () => void;
   onContinue: () => void;
-  loading: boolean;
+  loadStep: LoadStep;
   error: string | null;
 }) {
+  const busy = loadStep.status === "scenario";
+
   return (
     <motion.section {...fade} className="relative min-h-screen flex flex-col items-center px-6 pt-20">
       <h2 className="text-3xl text-accent font-display">Choose a Genre</h2>
@@ -287,10 +333,11 @@ function GenreScreen({
         {GENRES.map((g) => (
           <button
             key={g.name}
-            onClick={() => onSelect(g.name)}
+            onClick={() => !busy && onSelect(g.name)}
             className={
               "card flex flex-col items-center transition " +
-              (selected === g.name ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10")
+              (selected === g.name ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10") +
+              (busy ? " opacity-50 pointer-events-none" : "")
             }
           >
             <div className="text-3xl">{g.emoji}</div>
@@ -300,11 +347,26 @@ function GenreScreen({
       </div>
 
       {error && <div className="mt-4 text-crimson text-sm">{error}</div>}
-      {loading && <div className="mt-4 text-parchment/60 text-sm">Generating mystery (this may take ~10 seconds)…</div>}
+
+      {/* Step-by-step loading indicator */}
+      {loadStep.status !== "idle" && loadStep.status !== "ready" && (
+        <div className="mt-6 card max-w-md w-full">
+          <PrepStep
+            done={loadStep.status !== "scenario"}
+            label="Writing the case with Claude"
+          />
+          {loadStep.status === "images" && (
+            <PrepStep
+              done={loadStep.done >= loadStep.total}
+              label={`Generating illustrations (${loadStep.done} / ${loadStep.total})`}
+            />
+          )}
+        </div>
+      )}
 
       <button
         onClick={onContinue}
-        disabled={!selected || loading}
+        disabled={!selected || busy}
         className="absolute bottom-6 right-6 btn-primary !py-3 !px-6 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Continue
@@ -313,22 +375,56 @@ function GenreScreen({
   );
 }
 
+function PrepStep({ done, label }: { done: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      {done ? (
+        <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs text-white flex-shrink-0">✓</span>
+      ) : (
+        <span className="w-5 h-5 flex-shrink-0">
+          <svg className="animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+        </span>
+      )}
+      <span className={done ? "text-parchment/60 line-through text-sm" : "text-parchment/90 text-sm"}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function GameScreen({ room }: { room: RoomState }) {
   const s = room.scenario!;
   const [now, setNow] = useState(Date.now());
+  const announcedTimerRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
   const d = derivePhase(room, now);
-  const remainingMs = d.thinkingRemainingMs;
-  const mm = Math.floor(remainingMs / 60000).toString().padStart(2, "0");
-  const ss = Math.floor((remainingMs % 60000) / 1000).toString().padStart(2, "0");
+
+  // Voice announcements for timer transitions.
+  useEffect(() => {
+    const key = d.timer.kind + (d.timer.kind === "bonus_reveal" ? d.timer.nth : "");
+    if (announcedTimerRef.current.has(key)) return;
+    announcedTimerRef.current.add(key);
+    if (d.timer.kind === "next_keyword" && d.timer.nth === 1)
+      speakOpenAI("Five minutes are up. You may now ask questions and attempt answers. The next bonus keyword will be revealed in three minutes.");
+    if (d.timer.kind === "bonus_reveal" && d.timer.nth === 1)
+      speakOpenAI(`An additional keyword is now revealed: ${d.timer.keyword}.`);
+    if (d.timer.kind === "next_keyword" && d.timer.nth === 2)
+      speakOpenAI("The final bonus keyword will be revealed in three minutes.");
+    if (d.timer.kind === "bonus_reveal" && d.timer.nth === 2)
+      speakOpenAI(`The final keyword is now revealed: ${d.timer.keyword}.`);
+  }, [d.timer.kind, (d.timer as any).nth]);
 
   const visibleBonus = s.bonusKeywords.slice(0, d.revealedBonus);
 
   return (
-    <motion.section {...fade} className="relative min-h-screen px-4 sm:px-6 py-16 sm:py-20">
+    <motion.section {...fade} className="relative min-h-screen px-4 sm:px-6 py-16 sm:py-20 pb-24">
+      {/* ── Header: scores + timer ── */}
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 max-w-6xl mx-auto">
         <div className="order-2 sm:order-1 flex gap-2 sm:gap-6 flex-wrap justify-center sm:justify-start">
           {room.mode === "team" ? (
@@ -338,23 +434,16 @@ function GameScreen({ room }: { room: RoomState }) {
             </>
           ) : (
             room.players.filter((p) => !p.isHost).slice(0, 6).map((p) => (
-              <ScoreBox
-                key={p.id}
-                label={p.name}
-                score={p.score}
-                accent="text-accent"
-                winner={room.winner === p.id}
-              />
+              <ScoreBox key={p.id} label={p.name} score={p.score} accent="text-accent" winner={room.winner === p.id} />
             ))
           )}
         </div>
-        <div className="order-1 sm:order-2 text-center">
-          <div className="text-parchment/60 text-xs uppercase tracking-widest">Time</div>
-          <div className="text-4xl sm:text-5xl text-accent font-display tabular-nums">{mm}:{ss}</div>
-          <div className="text-parchment/40 text-[10px] uppercase tracking-widest">{d.phase}</div>
+        <div className="order-1 sm:order-2">
+          <TimerWidget timer={d.timer} />
         </div>
       </header>
 
+      {/* ── Case briefing ── */}
       <section className="mt-6 sm:mt-10 max-w-3xl mx-auto card">
         <div className="text-accent text-xs uppercase tracking-widest">Case Briefing</div>
         <p className="mt-2 text-parchment/90 italic">{s.briefing}</p>
@@ -364,15 +453,21 @@ function GameScreen({ room }: { room: RoomState }) {
         </p>
       </section>
 
+      {/* ── Photos ── */}
       <section className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-5xl mx-auto">
         {s.photos.map((p, i) => (
           <div key={i} className="card flex flex-col items-center">
-            <div className="w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-parchment/15 to-parchment/5 border border-parchment/15">
+            <div className="w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-parchment/15 to-parchment/5 border border-parchment/15 relative">
               {p.imageUrl ? (
-                <img src={p.imageUrl} alt={p.keyword} className="w-full h-full object-cover" />
+                <motion.img src={p.imageUrl} alt={p.keyword} className="w-full h-full object-cover"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-parchment/40 text-xs italic p-2 text-center">
-                  {p.prompt.slice(0, 60)}…
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  <svg className="w-7 h-7 animate-spin text-accent/60" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  <span className="text-parchment/40 text-[10px] text-center px-2">Generating illustration…</span>
                 </div>
               )}
             </div>
@@ -381,19 +476,7 @@ function GameScreen({ room }: { room: RoomState }) {
         ))}
       </section>
 
-      {visibleBonus.length > 0 && (
-        <section className="mt-6 max-w-5xl mx-auto card">
-          <div className="text-accent text-xs uppercase tracking-widest">Bonus Keywords</div>
-          <div className="mt-2 flex gap-3 flex-wrap">
-            {visibleBonus.map((k) => (
-              <span key={k} className="px-3 py-1 rounded-full bg-accent/20 border border-accent text-accent text-sm">
-                {k}
-              </span>
-            ))}
-          </div>
-        </section>
-      )}
-
+      {/* ── Activity log ── */}
       <section className="mt-6 max-w-5xl mx-auto card max-h-48 overflow-auto">
         <div className="text-accent text-xs uppercase tracking-widest">Activity</div>
         <ul className="mt-2 space-y-1 text-parchment/70 text-sm">
@@ -403,20 +486,93 @@ function GameScreen({ room }: { room: RoomState }) {
         </ul>
       </section>
 
-      {room.storedPhase === "ended" && (
-        <EndModal room={room} solution={s.solutionAnswer} />
-      )}
+      {/* ── Bonus keyword banner (bottom) ── */}
+      <AnimatePresence>
+        {visibleBonus.length > 0 && (
+          <motion.section
+            key="bonus"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ duration: 0.6 }}
+            className="fixed bottom-0 left-0 right-0 bg-ink/90 backdrop-blur border-t border-accent/30 px-6 py-4 z-30"
+          >
+            <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-4">
+              <span className="text-accent text-xs uppercase tracking-widest shrink-0">
+                {d.timer.kind === "bonus_reveal"
+                  ? d.timer.nth === 1
+                    ? "Additional keyword revealed"
+                    : "Final keyword revealed"
+                  : "Bonus keywords"}
+              </span>
+              <div className="flex gap-3 flex-wrap">
+                {visibleBonus.map((k, i) => (
+                  <motion.span
+                    key={k}
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.15, type: "spring", stiffness: 300 }}
+                    className="px-4 py-1.5 rounded-full bg-accent text-ink font-semibold text-sm shadow-glow"
+                  >
+                    {k}
+                  </motion.span>
+                ))}
+              </div>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {room.storedPhase === "ended" && <EndModal room={room} solution={s.solutionAnswer} />}
 
       {d.hiddenButtonShown && room.storedPhase !== "ended" && (
         <button
           onClick={() => api("/api/game/giveup", { code: room.code })}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-parchment/30 text-xs underline"
-          title="The hidden button"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 text-parchment/30 text-xs underline z-40"
         >
           I have no idea, cuckoo
         </button>
       )}
     </motion.section>
+  );
+}
+
+function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"] }) {
+  const baseNum = "text-4xl sm:text-5xl font-display tabular-nums";
+  if (timer.kind === "thinking") {
+    return (
+      <div className="text-center">
+        <div className="text-parchment/60 text-xs uppercase tracking-widest">Think</div>
+        <div className={`${baseNum} text-accent`}>{fmt(timer.remainingMs)}</div>
+      </div>
+    );
+  }
+  if (timer.kind === "next_keyword") {
+    return (
+      <div className="text-center">
+        <div className="text-parchment/60 text-xs uppercase tracking-widest">
+          Next keyword in
+        </div>
+        <div className={`${baseNum} text-parchment`}>{fmt(timer.remainingMs)}</div>
+      </div>
+    );
+  }
+  if (timer.kind === "bonus_reveal") {
+    return (
+      <div className="text-center">
+        <div className="text-accent text-xs uppercase tracking-widest animate-pulse">
+          {timer.nth === 1 ? "Bonus keyword!" : "Final keyword!"}
+        </div>
+        <div className="text-2xl sm:text-3xl text-accent font-display mt-1">{timer.keyword}</div>
+      </div>
+    );
+  }
+  // open
+  return (
+    <div className="text-center">
+      <div className="text-parchment/40 text-xs uppercase tracking-widest">Time</div>
+      <div className={`${baseNum} text-parchment/50`}>— : —</div>
+    </div>
   );
 }
 

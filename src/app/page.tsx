@@ -1,8 +1,15 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+// Lazy-load the scanner so the camera API is never touched on SSR.
+const QRScanner = dynamic(() => import("@/components/QRScanner"), { ssr: false });
 
 export default function HomePage() {
+  const [scanOpen, setScanOpen] = useState(false);
+
   return (
     <motion.main
       initial={{ opacity: 0 }}
@@ -28,16 +35,30 @@ export default function HomePage() {
         Start Game
       </Link>
 
-      <Link
-        href="/how-to-play"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 btn-ghost"
-      >
-        How to Play
-      </Link>
+      {/* ── Bottom bar ── */}
+      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 px-6">
+        <Link href="/how-to-play" className="btn-ghost">
+          How to Play
+        </Link>
 
-      {/* Settings page (/settings) is intentionally not linked from the home UI.
-          API keys are read from environment variables. The page still exists
-          as an escape hatch for runtime key rotation if you ever need it. */}
+        <button
+          onClick={() => setScanOpen(true)}
+          className="flex items-center gap-2 btn-ghost"
+          aria-label="Scan QR code to join a room"
+        >
+          {/* QR icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <path d="M14 14h1v1h-1zM18 14h1v1h-1zM16 16h1v1h-1zM14 18h1v1h-1zM18 18h1v1h-1zM20 16h1v1h-1zM20 20h1v1h-1z" fill="currentColor" stroke="none"/>
+          </svg>
+          Join a Room
+        </button>
+      </div>
+
+      {/* Settings page (/settings) is intentionally not linked from the home UI. */}
+      <QRScanner open={scanOpen} onClose={() => setScanOpen(false)} />
     </motion.main>
   );
 }
