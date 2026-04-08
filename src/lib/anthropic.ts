@@ -37,7 +37,7 @@ export async function generateScenario(genre: string): Promise<Scenario> {
   const c = await client();
   const msg = await c.messages.create({
     model: await MODEL(),
-    max_tokens: 1500,
+    max_tokens: 800,
     system: SYSTEM,
     messages: [
       {
@@ -79,28 +79,41 @@ export async function judgeAnswer(
   answer: string,
   revealedBonus: number
 ): Promise<Judgement> {
-  const c = await client();
   const requiredBase = scenario.photos.map((p) => p.keyword);
   const requiredBonus = scenario.bonusKeywords.slice(0, revealedBonus);
   const allKeywords = [...requiredBase, ...requiredBonus];
 
+  // ── Cheap local pre-checks ────────────────────────────────────────────
+  // Rules 1 + 2 from the original prompt are mechanical — handle them in
+  // code so we never burn LLM tokens on obviously-incomplete attempts.
+  const lower = answer.toLowerCase();
+  const missing = allKeywords.filter((k) => !lower.includes(k.toLowerCase()));
+  if (missing.length > 0) {
+    return { verdict: "unknown", message: "That is still unknown." };
+  }
+  if (!answer.includes("?")) {
+    return { verdict: "not_true", message: "That is not true." };
+  }
+
+  // ── Only the semantic match (rule 3) actually needs the LLM ───────────
+  const c = await client();
   const prompt = `You are judging a player's answer in Mystery Champion.
 Case briefing: ${scenario.briefing}
 Question: ${scenario.question}
 Canonical solution (keep secret): ${scenario.solutionAnswer}
-Currently revealed keywords (player must use ALL of these and phrase as a question): ${allKeywords.join(", ")}
+Required keywords (already verified present): ${allKeywords.join(", ")}
 
 Player's answer: """${answer}"""
 
-Apply these rules in order and reply ONLY with JSON {"verdict":"correct"|"not_true"|"unknown","message":"short reply"}:
-1. If the answer does NOT use ALL of the currently revealed keywords (case-insensitive substring match), verdict=unknown, message="That is still unknown."
-2. Else, if the answer is not phrased as a question (no '?' or interrogative form), verdict=not_true, message="That is not true."
-3. Else, decide if it semantically matches the canonical solution. If yes, verdict=correct, message="Correct!"
-4. Otherwise verdict=not_true, message="That is not true."`;
+The answer already uses every required keyword and is phrased as a question.
+Decide ONLY whether it semantically matches the canonical solution.
+Reply with JSON only: {"verdict":"correct"|"not_true","message":"short reply"}.
+- If yes → {"verdict":"correct","message":"Correct!"}
+- If no  → {"verdict":"not_true","message":"That is not true."}`;
 
   const msg = await c.messages.create({
     model: await MODEL(),
-    max_tokens: 200,
+    max_tokens: 80,
     messages: [{ role: "user", content: prompt }],
   });
   const text = msg.content
