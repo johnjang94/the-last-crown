@@ -18,6 +18,11 @@ export type T = {
   next: string;
   continueBtn: string;
 
+  // Install PWA
+  installApp: string;
+  installIosHint: string;
+  alreadyInstalled: string;
+
   // Home
   tagline: string;
   getStarted: string;
@@ -164,6 +169,10 @@ const en: T = {
   next: "Next",
   continueBtn: "Continue",
 
+  installApp: "Install App",
+  installIosHint: "Tap Share → Add to Home Screen",
+  alreadyInstalled: "Installed ✓",
+
   tagline: "Who is ready to take the crown?",
   getStarted: "Get Started",
   howToPlay: "How to play",
@@ -294,6 +303,10 @@ const ko: T = {
   save: "저장",
   next: "다음",
   continueBtn: "계속",
+
+  installApp: "앱 설치",
+  installIosHint: "공유 → 홈 화면에 추가",
+  alreadyInstalled: "설치됨 ✓",
 
   tagline: "왕관을 차지할 준비가 됐나요?",
   getStarted: "시작하기",
@@ -426,6 +439,10 @@ const vi: T = {
   next: "Tiếp theo",
   continueBtn: "Tiếp tục",
 
+  installApp: "Cài đặt ứng dụng",
+  installIosHint: "Nhấn Chia sẻ → Thêm vào màn hình chính",
+  alreadyInstalled: "Đã cài đặt ✓",
+
   tagline: "Ai sẵn sàng giành vương miện?",
   getStarted: "Bắt đầu",
   howToPlay: "Cách chơi",
@@ -557,6 +574,10 @@ const fr: T = {
   next: "Suivant",
   continueBtn: "Continuer",
 
+  installApp: "Installer l'application",
+  installIosHint: "Partager → Sur l'écran d'accueil",
+  alreadyInstalled: "Installée ✓",
+
   tagline: "Qui est prêt à prendre la couronne ?",
   getStarted: "Commencer",
   howToPlay: "Comment jouer",
@@ -687,6 +708,10 @@ const hi: T = {
   save: "सहेजें",
   next: "अगला",
   continueBtn: "जारी रखें",
+
+  installApp: "ऐप इंस्टॉल करें",
+  installIosHint: "शेयर → होम स्क्रीन पर जोड़ें",
+  alreadyInstalled: "इंस्टॉल हो गया ✓",
 
   tagline: "ताज जीतने के लिए कौन तैयार है?",
   getStarted: "शुरू करें",

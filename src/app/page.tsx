@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useT } from "@/contexts/LanguageContext";
 
 const QRScanner = dynamic(() => import("@/components/QRScanner"), { ssr: false });
+const InstallButton = dynamic(() => import("@/components/InstallButton"), { ssr: false });
 
 export default function HomePage() {
   const [scanOpen, setScanOpen] = useState(false);
@@ -33,7 +34,7 @@ export default function HomePage() {
         {t.getStarted}
       </Link>
 
-      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 px-6">
+      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 px-6 flex-wrap">
         <Link href="/how-to-play" className="btn-ghost">
           {t.howToPlay}
         </Link>
@@ -51,6 +52,8 @@ export default function HomePage() {
           </svg>
           {t.joinRoom}
         </button>
+
+        <InstallButton />
       </div>
 
       <QRScanner open={scanOpen} onClose={() => setScanOpen(false)} />
