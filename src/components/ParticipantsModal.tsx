@@ -1,6 +1,7 @@
 "use client";
 import type { RoomState } from "@/types/game";
 import { useState, useEffect } from "react";
+import { useT } from "@/contexts/LanguageContext";
 
 export default function ParticipantsModal({
   open,
@@ -14,6 +15,8 @@ export default function ParticipantsModal({
   onRename: (id: string, name: string) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const { t } = useT();
+
   useEffect(() => {
     if (open) {
       const d: Record<string, string> = {};
@@ -27,7 +30,7 @@ export default function ParticipantsModal({
     <div className="fixed inset-0 bg-ink/80 backdrop-blur flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md">
         <div className="flex items-center justify-between">
-          <div className="text-accent text-xs uppercase tracking-widest">Edit Participants</div>
+          <div className="text-accent text-xs uppercase tracking-widest">{t.editParticipantsTitle}</div>
           <button onClick={onClose} className="text-parchment/50 hover:text-parchment">×</button>
         </div>
         <ul className="mt-4 space-y-2 max-h-80 overflow-auto">
@@ -42,13 +45,13 @@ export default function ParticipantsModal({
                 onClick={() => onRename(p.id, drafts[p.id] || p.name)}
                 className="btn-pill"
               >
-                Save
+                {t.save}
               </button>
             </li>
           ))}
         </ul>
         <div className="mt-4 text-right">
-          <button onClick={onClose} className="btn-pill">Close</button>
+          <button onClick={onClose} className="btn-pill">{t.close}</button>
         </div>
       </div>
     </div>

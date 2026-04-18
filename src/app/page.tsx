@@ -3,11 +3,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { useT } from "@/contexts/LanguageContext";
 
 const QRScanner = dynamic(() => import("@/components/QRScanner"), { ssr: false });
 
 export default function HomePage() {
   const [scanOpen, setScanOpen] = useState(false);
+  const { t } = useT();
 
   return (
     <motion.main
@@ -25,17 +27,15 @@ export default function HomePage() {
         The <span className="text-accent">Last Crown</span>
       </h1>
 
-      <p className="mt-6 text-parchment/60 text-center max-w-xl">
-        Who is ready to take the crown?
-      </p>
+      <p className="mt-6 text-parchment/60 text-center max-w-xl">{t.tagline}</p>
 
       <Link href="/host" className="btn-primary mt-12 text-lg">
-        Get Started
+        {t.getStarted}
       </Link>
 
       <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 px-6">
         <Link href="/how-to-play" className="btn-ghost">
-          How to play
+          {t.howToPlay}
         </Link>
 
         <button
@@ -49,7 +49,7 @@ export default function HomePage() {
             <rect x="3" y="14" width="7" height="7" rx="1" />
             <path d="M14 14h1v1h-1zM18 14h1v1h-1zM16 16h1v1h-1zM14 18h1v1h-1zM18 18h1v1h-1zM20 16h1v1h-1zM20 20h1v1h-1z" fill="currentColor" stroke="none" />
           </svg>
-          Join a Room
+          {t.joinRoom}
         </button>
       </div>
 

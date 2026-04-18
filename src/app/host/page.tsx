@@ -9,6 +9,8 @@ import { derivePhase, fmt } from "@/lib/phase";
 import type { Difficulty, Mode, RoomState } from "@/types/game";
 import { api, getPlayerId, speakOpenAI, subscribeRoom } from "@/lib/client";
 import ParticipantsModal from "@/components/ParticipantsModal";
+import { useT } from "@/contexts/LanguageContext";
+import { getGenreDisplay, getDifficultyDisplay } from "@/lib/i18n";
 
 const fade = {
   initial: { opacity: 0 },
@@ -34,6 +36,7 @@ export default function HostPage() {
   const [mode, setMode] = useState<Mode>("team");
   const announcedRef = useRef<Set<string>>(new Set());
   const imgLoadedRef = useRef(false);
+  const { t } = useT();
 
   useEffect(() => {
     (async () => {
@@ -127,7 +130,7 @@ export default function HostPage() {
   if (!room) {
     return (
       <main className="min-h-screen flex items-center justify-center text-parchment/70">
-        {error || "Connecting…"}
+        {error || t.connecting}
       </main>
     );
   }
@@ -135,7 +138,7 @@ export default function HostPage() {
   return (
     <div className="min-h-screen w-full">
       <Link href="/" className="absolute top-6 left-6 text-parchment/60 hover:text-parchment text-sm z-10">
-        ← Home
+        {t.home}
       </Link>
 
       <AnimatePresence mode="wait">
@@ -155,7 +158,10 @@ export default function HostPage() {
           <GenreScreen
             key="genre"
             selected={selectedGenre}
-            onSelect={setSelectedGenre}
+            onSelect={(g) => {
+              setSelectedGenre(g);
+              api("/api/room/select", { code: room.code, genre: g });
+            }}
             onContinue={() => api("/api/room/phase", { code: room.code, phase: "difficulty" })}
           />
         )}
@@ -166,14 +172,17 @@ export default function HostPage() {
             selected={selectedDifficulty}
             loadStep={loadStep}
             error={error}
-            onSelect={setSelectedDifficulty}
+            onSelect={(d) => {
+              setSelectedDifficulty(d);
+              api("/api/room/select", { code: room.code, difficulty: d });
+            }}
             onBack={() => api("/api/room/phase", { code: room.code, phase: "genre" })}
             onStart={async () => {
               if (!selectedGenre || !selectedDifficulty) return;
               setError(null);
               imgLoadedRef.current = false;
               try {
-                setLoadStep({ status: "scenario", label: "Writing the round with OpenAI…" });
+                setLoadStep({ status: "scenario", label: t.writingRound });
                 await api("/api/scenario", {
                   code: room.code,
                   genre: selectedGenre,
@@ -217,17 +226,16 @@ function LobbyScreen({
   onEdit: () => void;
   onContinue: () => void;
 }) {
+  const { t } = useT();
   const joinUrl = typeof window !== "undefined" ? `${location.origin}/play/${room.code}` : "";
   const playableCount = room.players.filter((player) => !player.isHost).length;
   const isSolo = mode === "solo";
 
   return (
     <motion.section {...fade} className="relative min-h-screen flex flex-col items-center px-6 pt-20 pb-10">
-      <h2 className="text-3xl text-accent font-display">Game Conditions</h2>
+      <h2 className="text-3xl text-accent font-display">{t.gameConditions}</h2>
       <p className="mt-3 text-parchment/70 text-center max-w-xl">
-        {isSolo
-          ? "Step 1: solo mode selected — no other players needed. Continue to choose the game type."
-          : "Step 1: choose whether this round is solo or group play, then invite players into the room."}
+        {isSolo ? t.step1Solo : t.step1Group}
       </p>
 
       <div className="mt-6 flex gap-2 bg-parchment/10 rounded-full p-1 border border-parchment/15">
@@ -240,7 +248,7 @@ function LobbyScreen({
               (mode === value ? "bg-accent text-ink" : "text-parchment/70 hover:bg-parchment/10")
             }
           >
-            {value === "solo" ? "Solo" : "Group"}
+            {value === "solo" ? t.solo : t.group}
           </button>
         ))}
       </div>
@@ -256,14 +264,14 @@ function LobbyScreen({
 
         <div className="card min-w-[260px]">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-parchment/60 text-xs uppercase tracking-widest">Players</div>
-            {!isSolo && <button onClick={onEdit} className="btn-pill !py-2 !px-4">Edit Participants</button>}
+            <div className="text-parchment/60 text-xs uppercase tracking-widest">{t.players}</div>
+            {!isSolo && <button onClick={onEdit} className="btn-pill !py-2 !px-4">{t.editParticipants}</button>}
           </div>
           <ul className="mt-4 space-y-1 text-parchment/90 max-h-72 overflow-auto">
             {room.players.map((player) => (
               <li key={player.id} className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-accent" />
-                {player.name} {player.isHost && <span className="text-accent/60 text-xs">(host)</span>}
+                {player.name} {player.isHost && <span className="text-accent/60 text-xs">{t.hostLabel}</span>}
               </li>
             ))}
           </ul>
@@ -275,7 +283,7 @@ function LobbyScreen({
         disabled={!isSolo && playableCount < 1}
         className="mt-10 btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Continue to Game Type
+        {t.continueToGameType}
       </button>
     </motion.section>
   );
@@ -290,32 +298,34 @@ function GenreScreen({
   onSelect: (genre: string) => void;
   onContinue: () => void;
 }) {
+  const { t } = useT();
   return (
     <motion.section {...fade} className="relative min-h-screen flex flex-col items-center px-6 pt-20 pb-10">
-      <h2 className="text-3xl text-accent font-display">Game Conditions</h2>
-      <p className="mt-3 text-parchment/70 text-center max-w-xl">
-        Step 2: choose the kind of game you want to play.
-      </p>
+      <h2 className="text-3xl text-accent font-display">{t.gameConditions}</h2>
+      <p className="mt-3 text-parchment/70 text-center max-w-xl">{t.step2}</p>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl w-full">
-        {GENRES.map((genre) => (
-          <button
-            key={genre.name}
-            onClick={() => onSelect(genre.name)}
-            className={
-              "card text-left transition " +
-              (selected === genre.name ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10")
-            }
-          >
-            <div className="flex items-start gap-4">
-              <div className="text-3xl">{genre.emoji}</div>
-              <div>
-                <div className="text-parchment font-medium">{genre.name}</div>
-                <p className="mt-2 text-parchment/65 text-sm">{genre.description}</p>
+        {GENRES.map((genre) => {
+          const display = getGenreDisplay(genre.name, t);
+          return (
+            <button
+              key={genre.name}
+              onClick={() => onSelect(genre.name)}
+              className={
+                "card text-left transition " +
+                (selected === genre.name ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10")
+              }
+            >
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">{genre.emoji}</div>
+                <div>
+                  <div className="text-parchment font-medium">{display.name}</div>
+                  <p className="mt-2 text-parchment/65 text-sm">{display.description}</p>
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       <button
@@ -323,7 +333,7 @@ function GenreScreen({
         disabled={!selected}
         className="absolute bottom-6 right-6 btn-primary !py-3 !px-6 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Continue
+        {t.continueBtn}
       </button>
     </motion.section>
   );
@@ -344,39 +354,41 @@ function DifficultyScreen({
   onBack: () => void;
   onStart: () => void;
 }) {
+  const { t } = useT();
   const busy = loadStep.status === "scenario" || loadStep.status === "images";
 
   return (
     <motion.section {...fade} className="relative min-h-screen flex flex-col items-center px-6 pt-20 pb-10">
-      <h2 className="text-3xl text-accent font-display">Game Conditions</h2>
-      <p className="mt-3 text-parchment/70 text-center max-w-xl">
-        Step 3: choose the difficulty level, then start the round.
-      </p>
+      <h2 className="text-3xl text-accent font-display">{t.gameConditions}</h2>
+      <p className="mt-3 text-parchment/70 text-center max-w-xl">{t.step3}</p>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl w-full">
-        {DIFFICULTIES.map((difficulty) => (
-          <button
-            key={difficulty.value}
-            onClick={() => !busy && onSelect(difficulty.value)}
-            className={
-              "card text-left transition " +
-              (selected === difficulty.value ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10") +
-              (busy ? " opacity-60 pointer-events-none" : "")
-            }
-          >
-            <div className="text-accent text-xs uppercase tracking-widest">{difficulty.label}</div>
-            <p className="mt-3 text-parchment/80 text-sm">{difficulty.tagline}</p>
-          </button>
-        ))}
+        {DIFFICULTIES.map((difficulty) => {
+          const display = getDifficultyDisplay(difficulty.value, t);
+          return (
+            <button
+              key={difficulty.value}
+              onClick={() => !busy && onSelect(difficulty.value)}
+              className={
+                "card text-left transition " +
+                (selected === difficulty.value ? "ring-2 ring-accent shadow-glow" : "hover:bg-parchment/10") +
+                (busy ? " opacity-60 pointer-events-none" : "")
+              }
+            >
+              <div className="text-accent text-xs uppercase tracking-widest">{display.label}</div>
+              <p className="mt-3 text-parchment/80 text-sm">{display.tagline}</p>
+            </button>
+          );
+        })}
       </div>
 
       {loadStep.status !== "idle" && loadStep.status !== "ready" && (
         <div className="mt-6 card max-w-md w-full">
-          <PrepStep done={loadStep.status !== "scenario"} label="Writing the round with OpenAI" />
+          <PrepStep done={loadStep.status !== "scenario"} label={t.writingRound} />
           {loadStep.status === "images" && (
             <PrepStep
               done={loadStep.done >= loadStep.total}
-              label={`Creating the images with OpenAI (${loadStep.done} / ${loadStep.total})`}
+              label={t.creatingImages(loadStep.done, loadStep.total)}
             />
           )}
         </div>
@@ -385,14 +397,14 @@ function DifficultyScreen({
       {error && <div className="mt-4 text-crimson text-sm">{error}</div>}
 
       <button onClick={onBack} className="absolute bottom-6 left-6 btn-pill !py-3 !px-6">
-        Back
+        {t.back}
       </button>
       <button
         onClick={onStart}
         disabled={!selected || busy}
         className="absolute bottom-6 right-6 btn-primary !py-3 !px-6 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Start Game
+        {t.startGame}
       </button>
     </motion.section>
   );
@@ -423,10 +435,11 @@ function GameScreen({ room }: { room: RoomState }) {
   const [now, setNow] = useState(Date.now());
   const [exitOpen, setExitOpen] = useState(false);
   const announcedTimerRef = useRef<Set<string>>(new Set());
+  const { t } = useT();
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(timer);
   }, []);
 
   const d = derivePhase(room, now);
@@ -456,8 +469,8 @@ function GameScreen({ room }: { room: RoomState }) {
         <div className="order-2 sm:order-1 flex gap-2 sm:gap-6 flex-wrap justify-center sm:justify-start">
           {room.mode === "team" ? (
             <>
-              <ScoreBox label="Team 1" score={room.scores[0]} accent="text-crimson" winner={room.winner === 0} />
-              <ScoreBox label="Team 2" score={room.scores[1]} accent="text-accent" winner={room.winner === 1} />
+              <ScoreBox label={`${t.group} 1`} score={room.scores[0]} accent="text-crimson" winner={room.winner === 0} />
+              <ScoreBox label={`${t.group} 2`} score={room.scores[1]} accent="text-accent" winner={room.winner === 1} />
             </>
           ) : (
             room.players.filter((player) => !player.isHost).slice(0, 6).map((player) => (
@@ -479,29 +492,31 @@ function GameScreen({ room }: { room: RoomState }) {
       <section className="mt-6 sm:mt-10 max-w-5xl mx-auto grid lg:grid-cols-[1.4fr_0.9fr] gap-4">
         <div className="card">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-accent text-ink text-xs uppercase tracking-widest">
-              {room.genre}
-            </span>
+            {room.genre && (
+              <span className="px-3 py-1 rounded-full bg-accent text-ink text-xs uppercase tracking-widest">
+                {getGenreDisplay(room.genre, t).name}
+              </span>
+            )}
             {room.difficulty && (
               <span className="px-3 py-1 rounded-full border border-accent/35 text-accent text-xs uppercase tracking-widest">
-                {room.difficulty}
+                {getDifficultyDisplay(room.difficulty, t).label}
               </span>
             )}
           </div>
-          <div className="mt-4 text-accent text-xs uppercase tracking-widest">Passage</div>
+          <div className="mt-4 text-accent text-xs uppercase tracking-widest">{t.passage}</div>
           <p className="mt-2 text-parchment/90 italic">{scenario.briefing}</p>
           <p className="mt-3 text-parchment/80">
-            <span className="text-parchment/50 text-xs uppercase tracking-widest mr-2">Question</span>
+            <span className="text-parchment/50 text-xs uppercase tracking-widest mr-2">{t.passage.split(" ")[0]}</span>
             {scenario.question}
           </p>
         </div>
 
         <div className="card">
-          <div className="text-accent text-xs uppercase tracking-widest">Round Notes</div>
+          <div className="text-accent text-xs uppercase tracking-widest">{t.roundNotesTitle}</div>
           <ul className="mt-3 space-y-2 text-sm text-parchment/80">
-            <li>All passages and images for this round are generated by the OpenAI API.</li>
-            <li>Whoever has more points wins the game.</li>
-            <li>Ask a question if you want a hint, but it costs 1 point.</li>
+            <li>{t.note1}</li>
+            <li>{t.note2}</li>
+            <li>{t.note3}</li>
           </ul>
         </div>
       </section>
@@ -509,7 +524,7 @@ function GameScreen({ room }: { room: RoomState }) {
       {room.genre === "Visual Match" ? (
         <section className="mt-6 grid lg:grid-cols-2 gap-4 max-w-5xl mx-auto">
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">3D View</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.view3d}</div>
             <div className="mt-3 w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-parchment/15 to-parchment/5 border border-parchment/15 relative">
               {scenario.photos[0]?.imageUrl ? (
                 <motion.img
@@ -526,7 +541,7 @@ function GameScreen({ room }: { room: RoomState }) {
             </div>
           </div>
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">2D Maze</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.maze2d}</div>
             <div className="mt-3">
               <MazeBoard seed={scenario.solutionKeywords.join("-")} />
             </div>
@@ -558,7 +573,7 @@ function GameScreen({ room }: { room: RoomState }) {
 
       <section className="mt-6 max-w-5xl mx-auto grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
         <div className="card">
-          <div className="text-accent text-xs uppercase tracking-widest">Clue Keywords</div>
+          <div className="text-accent text-xs uppercase tracking-widest">{t.clueKeywords}</div>
           <div className="mt-3 flex flex-wrap gap-2">
             {scenario.photos.map((photo) => (
               <span key={photo.keyword} className="px-3 py-1 rounded-full bg-accent/15 border border-accent/40 text-accent text-xs">
@@ -575,7 +590,7 @@ function GameScreen({ room }: { room: RoomState }) {
 
         {scenario.choices?.length ? (
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">Possible Answers</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.possibleAnswers}</div>
             <ul className="mt-3 space-y-2 text-sm text-parchment/80">
               {scenario.choices.map((choice) => (
                 <li key={choice} className="rounded-lg border border-parchment/10 px-3 py-2 bg-parchment/5">
@@ -588,7 +603,7 @@ function GameScreen({ room }: { room: RoomState }) {
       </section>
 
       <section className="mt-6 max-w-5xl mx-auto card max-h-48 overflow-auto">
-        <div className="text-accent text-xs uppercase tracking-widest">Activity</div>
+        <div className="text-accent text-xs uppercase tracking-widest">{t.activity}</div>
         <ul className="mt-2 space-y-1 text-parchment/70 text-sm">
           {room.activity.map((activity) => (
             <li key={activity.id}>• {activity.text}</li>
@@ -610,9 +625,9 @@ function GameScreen({ room }: { room: RoomState }) {
               <span className="text-accent text-xs uppercase tracking-widest shrink-0">
                 {d.timer.kind === "bonus_reveal"
                   ? d.timer.nth === 1
-                    ? "Additional keyword revealed"
-                    : "Final keyword revealed"
-                  : "Bonus keywords"}
+                    ? t.additionalRevealed
+                    : t.finalRevealed
+                  : t.bonusKeywords}
               </span>
               <div className="flex gap-3 flex-wrap">
                 {visibleBonus.map((keyword, index) => (
@@ -639,7 +654,7 @@ function GameScreen({ room }: { room: RoomState }) {
           onClick={() => api("/api/game/giveup", { code: room.code })}
           className="fixed bottom-20 left-1/2 -translate-x-1/2 text-parchment/30 text-xs underline z-40"
         >
-          I have no idea, cuckoo
+          {t.giveup}
         </button>
       )}
 
@@ -647,7 +662,7 @@ function GameScreen({ room }: { room: RoomState }) {
         onClick={() => setExitOpen(true)}
         className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 px-5 py-2 rounded-full bg-parchment/10 hover:bg-parchment/20 border border-parchment/25 text-parchment/80 text-xs uppercase tracking-widest"
       >
-        Lobby
+        {t.lobbyBtn}
       </button>
 
       <ExitGameModal open={exitOpen} onClose={() => setExitOpen(false)} />
@@ -702,15 +717,16 @@ function MazeBoard({ seed }: { seed: string }) {
 }
 
 function ExitGameModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useT();
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-ink/80 backdrop-blur flex items-center justify-center z-[60]">
       <div className="card max-w-sm w-[90%] text-center">
-        <div className="text-accent text-xs uppercase tracking-widest">Exit game</div>
-        <p className="mt-3 text-parchment/90">Are you sure you want to leave the game?</p>
+        <div className="text-accent text-xs uppercase tracking-widest">{t.exitGameTitle}</div>
+        <p className="mt-3 text-parchment/90">{t.leaveConfirm}</p>
         <div className="mt-6 flex gap-3 justify-center">
-          <button onClick={onClose} className="btn-pill">Stay</button>
-          <Link href="/" className="btn-primary !py-2 !px-4">Leave the Game</Link>
+          <button onClick={onClose} className="btn-pill">{t.stay}</button>
+          <Link href="/" className="btn-primary !py-2 !px-4">{t.leaveGame}</Link>
         </div>
       </div>
     </div>
@@ -718,11 +734,12 @@ function ExitGameModal({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"] }) {
+  const { t } = useT();
   const baseNum = "text-4xl sm:text-5xl font-display tabular-nums";
   if (timer.kind === "thinking") {
     return (
       <div className="text-center">
-        <div className="text-parchment/60 text-xs uppercase tracking-widest">Think</div>
+        <div className="text-parchment/60 text-xs uppercase tracking-widest">{t.think}</div>
         <div className={`${baseNum} text-accent`}>{fmt(timer.remainingMs)}</div>
       </div>
     );
@@ -730,7 +747,7 @@ function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"]
   if (timer.kind === "next_keyword") {
     return (
       <div className="text-center">
-        <div className="text-parchment/60 text-xs uppercase tracking-widest">Next keyword in</div>
+        <div className="text-parchment/60 text-xs uppercase tracking-widest">{t.nextKeywordIn}</div>
         <div className={`${baseNum} text-parchment`}>{fmt(timer.remainingMs)}</div>
       </div>
     );
@@ -739,7 +756,7 @@ function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"]
     return (
       <div className="text-center">
         <div className="text-accent text-xs uppercase tracking-widest animate-pulse">
-          {timer.nth === 1 ? "Bonus keyword!" : "Final keyword!"}
+          {timer.nth === 1 ? t.bonusKeywordExcl : t.finalKeywordExcl}
         </div>
         <div className="text-2xl sm:text-3xl text-accent font-display mt-1">{timer.keyword}</div>
       </div>
@@ -773,12 +790,13 @@ function ScoreBox({
 }
 
 function EndModal({ room, solution }: { room: RoomState; solution: string }) {
-  let title = "No winner";
+  const { t } = useT();
+  let title = t.noWinner;
   if (room.winner != null) {
-    if (typeof room.winner === "number") title = `Team ${room.winner + 1} wins!`;
+    if (typeof room.winner === "number") title = t.teamWins(room.winner + 1);
     else {
       const player = room.players.find((entry) => entry.id === room.winner);
-      title = player ? `${player.name} wins!` : "Winner";
+      title = player ? t.playerWins(player.name) : t.winner;
     }
   }
   return (
@@ -788,7 +806,7 @@ function EndModal({ room, solution }: { room: RoomState; solution: string }) {
         <p className="mt-3 text-parchment/90">{solution}</p>
         <div className="mt-6 flex gap-3 justify-center">
           <Link href="/" className="btn-primary !py-2 !px-4">
-            New Game
+            {t.newGame}
           </Link>
         </div>
       </div>
