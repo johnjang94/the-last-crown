@@ -99,7 +99,7 @@ export default function InstallButton() {
                 </svg>
               </div>
               <p className="text-parchment/90 text-sm font-medium">{t.installIosHint}</p>
-              <p className="mt-1 text-parchment/45 text-xs">Safari only</p>
+              <p className="mt-1 text-parchment/45 text-xs">{t.safariOnly}</p>
             </motion.div>
           )}
         </AnimatePresence>

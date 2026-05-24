@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LOCALES, type Locale } from "@/lib/i18n";
+import { getDifficultyDisplay, getGenreDisplay, LOCALES, type Locale } from "@/lib/i18n";
 import { useT } from "@/contexts/LanguageContext";
 import { useUserSettings } from "@/contexts/UserSettingsContext";
 import { type NotificationChannel } from "@/lib/userSettings";
@@ -40,7 +40,7 @@ export default function AppControls() {
             onClick={() => setOpen(true)}
             className="btn-pill !py-2.5 !px-4 bg-ink/70 backdrop-blur border border-parchment/20 text-sm"
           >
-            {LOCALES.find((item) => item.code === locale)?.label || "Language"}
+            {LOCALES.find((item) => item.code === locale)?.label || t.language}
           </button>
         </div>
         {open && (
@@ -67,7 +67,7 @@ export default function AppControls() {
           <button
             onClick={() => setOpen(true)}
             className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-parchment/20 bg-ink/65 text-parchment/80 backdrop-blur hover:text-parchment"
-            aria-label="Setting"
+            aria-label={t.settingsMenu}
           >
             <GearIcon />
             {unreadCount > 0 && (
@@ -83,7 +83,7 @@ export default function AppControls() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/82 px-4 backdrop-blur">
           <div className="card w-full max-w-lg">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-accent text-xs uppercase tracking-[0.35em]">Setting</div>
+              <div className="text-accent text-xs uppercase tracking-[0.35em]">{t.settingsMenu}</div>
               <button onClick={() => setOpen(false)} className="text-sm text-parchment/60 hover:text-parchment">
                 {t.close}
               </button>
@@ -92,13 +92,13 @@ export default function AppControls() {
             {panel === "menu" && (
               <div className="mt-5 grid gap-3">
                 <button onClick={() => setPanel("language")} className="btn-pill !py-3 !px-4 text-left">
-                  Language
+                  {t.language}
                 </button>
                 <button onClick={() => setPanel("profile")} className="btn-pill !py-3 !px-4 text-left">
-                  My Profile
+                  {t.myProfile}
                 </button>
                 <button onClick={() => setPanel("notification")} className="btn-pill !py-3 !px-4 text-left">
-                  Notification {unreadCount > 0 ? `(${unreadCount})` : ""}
+                  {t.notifications} {unreadCount > 0 ? `(${unreadCount})` : ""}
                 </button>
               </div>
             )}
@@ -134,12 +134,12 @@ export default function AppControls() {
                   {t.back}
                 </button>
                 <div className="mt-4">
-                  <div className="text-accent text-xs uppercase tracking-widest">Display Name</div>
+                  <div className="text-accent text-xs uppercase tracking-widest">{t.displayName}</div>
                   <input
                     value={nameDraft}
                     onChange={(e) => setNameDraft(e.target.value)}
                     className="mt-3 w-full rounded-xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-parchment outline-none"
-                    placeholder="Player"
+                    placeholder={t.playerPlaceholder}
                   />
                   <button onClick={() => setDisplayName(nameDraft)} className="mt-3 btn-primary !py-2 !px-4">
                     {t.save}
@@ -147,29 +147,29 @@ export default function AppControls() {
                 </div>
 
                 <div className="mt-6">
-                  <div className="text-accent text-xs uppercase tracking-widest">Game History</div>
+                  <div className="text-accent text-xs uppercase tracking-widest">{t.gameHistory}</div>
                   <div className="mt-3 max-h-72 space-y-3 overflow-auto pr-1">
                     {settings.history.length === 0 ? (
                       <div className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4 text-sm text-parchment/60">
-                        No games recorded yet.
+                        {t.noGamesRecorded}
                       </div>
                     ) : (
                       settings.history.map((item) => (
                         <div key={item.id} className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-parchment font-medium">{item.genre}</div>
+                            <div className="text-parchment font-medium">{getGenreDisplay(item.genre, t).name}</div>
                             <div className={item.outcome === "won" ? "text-emerald-400 text-sm" : "text-parchment/60 text-sm"}>
-                              {item.outcome === "won" ? "Won" : "Lost"}
+                              {item.outcome === "won" ? t.won : t.lost}
                             </div>
                           </div>
                           <div className="mt-2 text-sm text-parchment/70">
-                            {item.mode === "solo" ? "Solo" : "Online PVP"} · {item.difficulty} · Score {item.score}
+                            {item.mode === "solo" ? t.solo : t.onlinePvp} · {getDifficultyDisplay(item.difficulty, t).label} · {t.scoreWord} {item.score}
                           </div>
                           <div className="mt-1 text-xs text-parchment/50">
-                            Room {item.roomCode} · {new Date(item.playedAt).toLocaleString()}
+                            {t.roomWord} {item.roomCode} · {new Date(item.playedAt).toLocaleString(locale)}
                           </div>
                           <div className="mt-2 text-xs text-parchment/60">
-                            Players: {item.participants.join(", ")}
+                            {t.participantsWord}: {item.participants.join(", ")}
                           </div>
                         </div>
                       ))
@@ -186,12 +186,12 @@ export default function AppControls() {
                 </button>
 
                 <div className="mt-4">
-                  <div className="text-accent text-xs uppercase tracking-widest">Delivery</div>
+                  <div className="text-accent text-xs uppercase tracking-widest">{t.delivery}</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {([
-                      ["email", "Email"],
-                      ["sms", "Text Message"],
-                      ["none", "Opt-out"],
+                      ["email", t.email],
+                      ["sms", t.textMessage],
+                      ["none", t.optOut],
                     ] as const).map(([value, label]) => (
                       <button
                         key={value}
@@ -214,7 +214,7 @@ export default function AppControls() {
                     value={settings.notifications.email}
                     onChange={(e) => updateNotifications({ email: e.target.value })}
                     className="mt-4 w-full rounded-xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-parchment outline-none"
-                    placeholder="Email address"
+                    placeholder={t.emailAddress}
                   />
                 )}
 
@@ -223,52 +223,52 @@ export default function AppControls() {
                     value={settings.notifications.phone}
                     onChange={(e) => updateNotifications({ phone: e.target.value })}
                     className="mt-4 w-full rounded-xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-parchment outline-none"
-                    placeholder="Phone number"
+                    placeholder={t.phoneNumber}
                   />
                 )}
 
                 <div className="mt-5 space-y-2">
                   <NotificationToggle
-                    label="Points earned"
+                    label={t.pointsEarned}
                     checked={settings.notifications.points}
                     onChange={(checked) => updateNotifications({ points: checked })}
                   />
                   <NotificationToggle
-                    label="Messages from other players"
+                    label={t.messagesFromOtherPlayers}
                     checked={settings.notifications.messages}
                     onChange={(checked) => updateNotifications({ messages: checked })}
                   />
                   <NotificationToggle
-                    label="Badge unlocks"
+                    label={t.badgeUnlocks}
                     checked={settings.notifications.badges}
                     onChange={(checked) => updateNotifications({ badges: checked })}
                   />
                   <NotificationToggle
-                    label="Ranking updates"
+                    label={t.rankingUpdates}
                     checked={settings.notifications.ranking}
                     onChange={(checked) => updateNotifications({ ranking: checked })}
                   />
                 </div>
 
                 <div className="mt-6">
-                  <div className="text-accent text-xs uppercase tracking-widest">Recent Alerts</div>
+                  <div className="text-accent text-xs uppercase tracking-widest">{t.recentAlerts}</div>
                   <p className="mt-2 text-xs text-parchment/50">
-                    Message alerts now feed into this list. Email and text delivery preferences are saved, but external sending is not wired yet.
+                    {t.alertDeliveryNotice}
                   </p>
                   <div className="mt-3 max-h-56 space-y-3 overflow-auto pr-1">
                     {settings.inbox.length === 0 ? (
                       <div className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4 text-sm text-parchment/60">
-                        No notifications yet.
+                        {t.noNotificationsYet}
                       </div>
                     ) : (
                       settings.inbox.map((item) => (
                         <div key={item.id} className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-sm font-medium text-parchment">{item.title}</div>
-                            <div className="text-[11px] text-parchment/50">{new Date(item.createdAt).toLocaleString()}</div>
+                            <div className="text-[11px] text-parchment/50">{new Date(item.createdAt).toLocaleString(locale)}</div>
                           </div>
                           <div className="mt-2 text-sm text-parchment/70">{item.body}</div>
-                          {item.roomCode && <div className="mt-2 text-xs text-parchment/50">Room {item.roomCode}</div>}
+                          {item.roomCode && <div className="mt-2 text-xs text-parchment/50">{t.roomWord} {item.roomCode}</div>}
                         </div>
                       ))
                     )}
@@ -292,13 +292,14 @@ function SimpleLanguageModal({
   setLocale: (value: Locale) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/82 px-4 backdrop-blur">
       <div className="card w-full max-w-sm">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-accent text-xs uppercase tracking-[0.35em]">Language</div>
+          <div className="text-accent text-xs uppercase tracking-[0.35em]">{t.language}</div>
           <button onClick={onClose} className="text-sm text-parchment/60 hover:text-parchment">
-            Close
+            {t.close}
           </button>
         </div>
         <div className="mt-5 grid gap-2">

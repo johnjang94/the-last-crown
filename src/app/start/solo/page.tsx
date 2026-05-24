@@ -9,12 +9,11 @@ import { GENRES, type GenreName } from "@/lib/genres";
 import { useT } from "@/contexts/LanguageContext";
 import { useUserSettings } from "@/contexts/UserSettingsContext";
 import type { Difficulty, RoomState } from "@/types/game";
-import { getGenreDisplay } from "@/lib/i18n";
+import { getDifficultyDisplay, getGenreDisplay } from "@/lib/i18n";
 import { getFlowCopy, getGuideSlides } from "@/lib/genreGuides";
 import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
 import { clearActiveSession, readActiveSession, writeActiveSession } from "@/lib/activeSession";
 import {
-  getDifficultyLabel,
   getGenreProgress,
   recordGenreFailure,
   recordGenreWin,
@@ -228,7 +227,7 @@ export default function StartPage() {
                         : "bg-parchment/5 text-parchment/80 border-parchment/15 hover:border-accent/45")
                     }
                   >
-                    {getDifficultyLabel(difficulty)}
+                    {getDifficultyDisplay(difficulty, t).label}
                   </button>
                 ))}
               </div>
@@ -264,7 +263,7 @@ export default function StartPage() {
                           <p className="mt-3 text-parchment/68 leading-relaxed">{display.description}</p>
                           <div className="mt-5 flex flex-wrap gap-2 text-[11px] text-parchment/70">
                             <span className="rounded-full border border-parchment/15 px-3 py-1">
-                              {copy.currentLevel}: {getDifficultyLabel(progress.currentDifficulty)}
+                              {copy.currentLevel}: {getDifficultyDisplay(progress.currentDifficulty, t).label}
                             </span>
                             <span className="rounded-full border border-parchment/15 px-3 py-1">
                               {copy.streakLabel}: {progress.streak}
@@ -343,7 +342,7 @@ export default function StartPage() {
                   {room.scenario.bonusKeywords.map((keyword) => (
                     <div key={keyword} className="rounded-2xl border border-accent/25 bg-accent/8 p-4 flex items-center justify-center text-center">
                       <div>
-                        <div className="text-[10px] uppercase tracking-widest text-accent/70">Bonus clue</div>
+                        <div className="text-[10px] uppercase tracking-widest text-accent/70">{t.bonusClue}</div>
                         <div className="mt-2 text-lg font-display text-parchment">{keyword}</div>
                       </div>
                     </div>
@@ -481,7 +480,7 @@ export default function StartPage() {
           title={roundOutcome.won ? copy.winTitle : copy.lossTitle}
           body={roundOutcome.won ? copy.winBody : copy.lossBody}
           levelLabel={copy.currentLevel}
-          levelValue={getDifficultyLabel(roundOutcome.difficultyAfter)}
+          levelValue={getDifficultyDisplay(roundOutcome.difficultyAfter, t).label}
           streakLabel={copy.streakLabel}
           streakValue={roundOutcome.streakAfter}
           playSameLabel={copy.playSame}

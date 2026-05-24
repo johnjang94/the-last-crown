@@ -84,7 +84,7 @@ export default function PlayPage() {
     if (!settings.notifications.messages) return;
     pushInboxNotification({
       kind: "message",
-      title: message.scope === "team" ? `Team chat from ${message.playerName}` : `Room chat from ${message.playerName}`,
+      title: message.scope === "team" ? t.teamChatFrom(message.playerName) : t.roomChatFrom(message.playerName),
       body: message.text,
       roomCode: code,
     });
@@ -175,7 +175,7 @@ export default function PlayPage() {
           {settings.displayName}
         </div>
         <p className="mt-3 text-center text-sm text-parchment/60">
-          Change your name from Setting → My Profile.
+          {t.displayNameHint}
         </p>
         {error && <div className="mt-3 text-crimson text-sm">{error}</div>}
         <button
@@ -242,7 +242,7 @@ export default function PlayPage() {
                       onClick={() => setWaitingLeaveOpen(true)}
                       className="mt-12 rounded-full border border-parchment/20 bg-parchment/10 px-6 py-3 text-sm text-parchment/85 transition hover:bg-parchment/15"
                     >
-                      Leave this waiting hall
+                      {t.waitingHallLeave}
                     </button>
                   )}
                 </div>
@@ -260,7 +260,7 @@ export default function PlayPage() {
                   activeScope={activeChatScope}
                   setActiveScope={setActiveChatScope}
                   showTeamChat={false}
-                  title="Chat"
+                  title={t.chatTab}
                 />
               </div>
             </div>
@@ -354,7 +354,7 @@ export default function PlayPage() {
                   <>
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-parchment/50 text-sm">
-                        {room.mode === "solo" ? me?.name || "Player" : `${t.group} ${myTeam == null ? "?" : myTeam + 1}`}
+                        {room.mode === "solo" ? me?.name || t.playerPlaceholder : `${t.group} ${myTeam == null ? "?" : myTeam + 1}`}
                         {" · "}
                         <span className="text-parchment/70">
                           {room.mode === "solo" ? me?.score : (myTeam != null ? room.scores[myTeam] : "")} {t.pts}
@@ -397,7 +397,7 @@ export default function PlayPage() {
                         <p className="mt-2 text-parchment/80 text-sm">{room.scenario.question}</p>
                         {room.genre === "Visual Match" && (
                           <p className="mt-2 text-parchment/60 text-xs">
-                            Match the 3D maze scene to the labeled 2D maze board.
+                            {t.visualMatchHint}
                           </p>
                         )}
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -527,7 +527,7 @@ export default function PlayPage() {
                   setTeamDraft={setTeamChatDraft}
                   onSend={sendChat}
                   currentPlayerId={playerId}
-                  title="Chat"
+                  title={t.chatTab}
                   activeScope={activeChatScope}
                   setActiveScope={setActiveChatScope}
                   showTeamChat={showTeamChat}
@@ -542,9 +542,9 @@ export default function PlayPage() {
       {waitingLeaveOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/80 backdrop-blur">
           <div className="card max-w-sm w-[90%] text-center">
-            <div className="text-accent text-xs uppercase tracking-widest">Leave waiting hall</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.leaveWaitingHallTitle}</div>
             <p className="mt-3 text-parchment/90">
-              Are you sure you want to end this game and go back to /start/online?
+              {t.leaveWaitingHallConfirm}
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <button onClick={() => setWaitingLeaveOpen(false)} className="btn-pill">
@@ -559,7 +559,7 @@ export default function PlayPage() {
                 }}
                 className="btn-primary !py-2 !px-4"
               >
-                End Game
+                {t.endGame}
               </button>
             </div>
           </div>
@@ -593,14 +593,14 @@ export default function PlayPage() {
         <div className="mx-auto flex max-w-md gap-2">
           {showLobbyPanels ? (
             <>
-              <MobileNavButton active={mobilePanel === "players"} onClick={() => setMobilePanel("players")} label="Players" />
-              <MobileNavButton active={mobilePanel === "chat"} onClick={() => setMobilePanel("chat")} label="Chat" />
+              <MobileNavButton active={mobilePanel === "players"} onClick={() => setMobilePanel("players")} label={t.playersTab} />
+              <MobileNavButton active={mobilePanel === "chat"} onClick={() => setMobilePanel("chat")} label={t.chatTab} />
             </>
           ) : (
             <>
-              <MobileNavButton active={mobilePanel === "game"} onClick={() => setMobilePanel("game")} label="Game" />
-              <MobileNavButton active={mobilePanel === "feed"} onClick={() => setMobilePanel("feed")} label="Feed" />
-              <MobileNavButton active={mobilePanel === "chat"} onClick={() => setMobilePanel("chat")} label="Chat" />
+              <MobileNavButton active={mobilePanel === "game"} onClick={() => setMobilePanel("game")} label={t.gameTab} />
+              <MobileNavButton active={mobilePanel === "feed"} onClick={() => setMobilePanel("feed")} label={t.feedTab} />
+              <MobileNavButton active={mobilePanel === "chat"} onClick={() => setMobilePanel("chat")} label={t.chatTab} />
             </>
           )}
         </div>
@@ -653,6 +653,7 @@ function ChatCard({
   setActiveScope: (value: "room" | "team") => void;
   showTeamChat: boolean;
 }) {
+  const { t } = useT();
   const messages = activeScope === "team" && showTeamChat ? teamMessages : roomMessages;
   const draft = activeScope === "team" && showTeamChat ? teamDraft : roomDraft;
   const setDraft = activeScope === "team" && showTeamChat ? setTeamDraft : setRoomDraft;
@@ -669,7 +670,7 @@ function ChatCard({
               (activeScope === "room" ? "bg-accent text-ink" : "bg-parchment/8 text-parchment/70")
             }
           >
-            Room
+            {t.roomChatLabel}
           </button>
           {showTeamChat && (
             <button
@@ -679,7 +680,7 @@ function ChatCard({
                 (activeScope === "team" ? "bg-accent text-ink" : "bg-parchment/8 text-parchment/70")
               }
             >
-              Team
+              {t.teamChatLabel}
             </button>
           )}
         </div>
@@ -687,7 +688,7 @@ function ChatCard({
       <div className="mt-3 max-h-[50vh] min-h-[240px] space-y-2 overflow-auto rounded-2xl border border-parchment/10 bg-parchment/5 p-3">
         {messages.length === 0 ? (
           <div className="text-sm text-parchment/50">
-            {activeScope === "team" && showTeamChat ? "No team messages yet." : "No room messages yet."}
+            {activeScope === "team" && showTeamChat ? t.noTeamMessagesYet : t.noRoomMessagesYet}
           </div>
         ) : (
           messages.map((message) => (
@@ -712,7 +713,7 @@ function ChatCard({
           onChange={(e) => setDraft(e.target.value.slice(0, 280))}
           rows={3}
           className="w-full rounded-xl border border-parchment/15 bg-parchment/10 px-3 py-2 text-sm text-parchment outline-none"
-          placeholder={activeScope === "team" && showTeamChat ? "Write a message to your team" : "Write a message to the room"}
+          placeholder={activeScope === "team" && showTeamChat ? t.writeMessageToTeam : t.writeMessageToRoom}
         />
         <div className="mt-2 flex items-center justify-between gap-3">
           <div className="text-xs text-parchment/50">{draft.length}/280</div>
@@ -721,7 +722,7 @@ function ChatCard({
             disabled={!draft.trim()}
             className="btn-primary !py-2 !px-4 disabled:opacity-40"
           >
-            Send
+            {t.send}
           </button>
         </div>
       </div>

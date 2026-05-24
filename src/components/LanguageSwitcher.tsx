@@ -5,7 +5,7 @@ import { LOCALES } from "@/lib/i18n";
 import { useT } from "@/contexts/LanguageContext";
 
 export default function LanguageSwitcher() {
-  const { locale, setLocale } = useT();
+  const { locale, setLocale, t } = useT();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const current = LOCALES.find((l) => l.code === locale) || LOCALES[0];
@@ -58,7 +58,7 @@ export default function LanguageSwitcher() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-10 h-10 rounded-full bg-parchment/10 border border-parchment/20 hover:bg-parchment/20 flex items-center justify-center text-lg shadow-lg"
-        aria-label="Change language"
+        aria-label={t.changeLanguage}
       >
         {current.flag}
       </button>

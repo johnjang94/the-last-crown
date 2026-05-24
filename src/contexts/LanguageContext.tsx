@@ -4,6 +4,21 @@ import { type Locale, type T, translations } from "@/lib/i18n";
 
 const LS_KEY = "tlc:locale";
 
+function detectLocale(): Locale {
+  if (typeof navigator === "undefined") return "en";
+  const languages = [...(navigator.languages || []), navigator.language].filter(Boolean);
+  for (const value of languages) {
+    const normalized = value.toLowerCase();
+    if (normalized.startsWith("ko")) return "ko";
+    if (normalized.startsWith("fr")) return "fr";
+    if (normalized === "zh-hk" || normalized === "zh-mo" || normalized.startsWith("yue")) return "zh-HK";
+    if (normalized.startsWith("zh")) return "zh-CN";
+    if (normalized.startsWith("es")) return "es";
+    if (normalized.startsWith("en")) return "en";
+  }
+  return "en";
+}
+
 type LanguageContextValue = {
   locale: Locale;
   setLocale: (l: Locale) => void;
@@ -21,8 +36,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem(LS_KEY) as Locale | null;
-    if (stored && translations[stored]) setLocaleState(stored);
+    if (stored && translations[stored]) {
+      setLocaleState(stored);
+      return;
+    }
+    setLocaleState(detectLocale());
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   function setLocale(l: Locale) {
     setLocaleState(l);

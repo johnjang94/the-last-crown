@@ -8,8 +8,7 @@ import type { Difficulty } from "@/types/game";
 import { api } from "@/lib/client";
 import { useT } from "@/contexts/LanguageContext";
 import { useUserSettings } from "@/contexts/UserSettingsContext";
-import { getGenreDisplay } from "@/lib/i18n";
-import { getDifficultyLabel } from "@/lib/progression";
+import { getDifficultyDisplay, getGenreDisplay } from "@/lib/i18n";
 import { getEntryCopy } from "@/lib/entryCopy";
 
 export default function OnlineStartPage() {
@@ -37,16 +36,16 @@ export default function OnlineStartPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">My Profile</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.myProfile}</div>
             <div className="mt-3 rounded-2xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-parchment">
               {settings.displayName}
             </div>
             <p className="mt-3 text-sm text-parchment/60">
-              Change your name from Setting → My Profile.
+              {t.displayNameHint}
             </p>
           </div>
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">Difficulty</div>
+            <div className="text-accent text-xs uppercase tracking-widest">{t.difficulty}</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {(["easy", "medium", "hard"] as const).map((value) => (
                 <button
@@ -59,7 +58,7 @@ export default function OnlineStartPage() {
                       : "bg-parchment/5 text-parchment/80 border-parchment/15 hover:border-accent/45")
                   }
                 >
-                  {getDifficultyLabel(value)}
+                  {getDifficultyDisplay(value, t).label}
                 </button>
               ))}
             </div>

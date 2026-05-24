@@ -37,7 +37,7 @@ export default function HomePage() {
 
       {resumePath && (
         <Link href={resumePath} className="mt-4 btn-pill !py-3 !px-6 text-sm">
-          Resume Game
+          {t.resumeGame}
         </Link>
       )}
     </motion.main>
