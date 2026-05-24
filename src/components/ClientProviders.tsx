@@ -1,12 +1,15 @@
 "use client";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { UserSettingsProvider } from "@/contexts/UserSettingsContext";
+import AppControls from "@/components/AppControls";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
-      {children}
-      <LanguageSwitcher />
+      <UserSettingsProvider>
+        {children}
+        <AppControls />
+      </UserSettingsProvider>
     </LanguageProvider>
   );
 }

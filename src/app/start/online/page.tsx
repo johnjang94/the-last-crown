@@ -7,6 +7,7 @@ import { GENRES, type GenreName } from "@/lib/genres";
 import type { Difficulty } from "@/types/game";
 import { api } from "@/lib/client";
 import { useT } from "@/contexts/LanguageContext";
+import { useUserSettings } from "@/contexts/UserSettingsContext";
 import { getGenreDisplay } from "@/lib/i18n";
 import { getDifficultyLabel } from "@/lib/progression";
 import { getEntryCopy } from "@/lib/entryCopy";
@@ -14,8 +15,8 @@ import { getEntryCopy } from "@/lib/entryCopy";
 export default function OnlineStartPage() {
   const router = useRouter();
   const { locale, t } = useT();
+  const { settings } = useUserSettings();
   const copy = getEntryCopy(locale);
-  const [name, setName] = useState("");
   const [genre, setGenre] = useState<GenreName | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [error, setError] = useState<string | null>(null);
@@ -36,13 +37,13 @@ export default function OnlineStartPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="card">
-            <div className="text-accent text-xs uppercase tracking-widest">{copy.onlineName}</div>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-3 w-full bg-parchment/10 rounded px-4 py-3 text-parchment outline-none border border-parchment/15"
-              placeholder={copy.onlineName}
-            />
+            <div className="text-accent text-xs uppercase tracking-widest">My Profile</div>
+            <div className="mt-3 rounded-2xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-parchment">
+              {settings.displayName}
+            </div>
+            <p className="mt-3 text-sm text-parchment/60">
+              Change your name from Setting → My Profile.
+            </p>
           </div>
           <div className="card">
             <div className="text-accent text-xs uppercase tracking-widest">Difficulty</div>
@@ -90,13 +91,13 @@ export default function OnlineStartPage() {
         {error && <p className="mt-5 text-sm text-crimson">{error}</p>}
 
         <button
-          disabled={!name.trim() || !genre || loading}
+          disabled={!genre || loading}
           onClick={async () => {
             try {
               setLoading(true);
               setError(null);
               const { room } = await api<{ room: { code: string } }>("/api/matchmake", {
-                name,
+                name: settings.displayName,
                 genre,
                 difficulty,
               });

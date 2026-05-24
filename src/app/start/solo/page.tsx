@@ -7,8 +7,8 @@ import { motion } from "framer-motion";
 import { api, apiGet, getPlayerId, subscribeRoom } from "@/lib/client";
 import { GENRES, type GenreName } from "@/lib/genres";
 import { useT } from "@/contexts/LanguageContext";
+import { useUserSettings } from "@/contexts/UserSettingsContext";
 import type { Difficulty, RoomState } from "@/types/game";
-import SettingsMenu from "@/components/SettingsMenu";
 import { getGenreDisplay } from "@/lib/i18n";
 import { getFlowCopy, getGuideSlides } from "@/lib/genreGuides";
 import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
@@ -56,6 +56,7 @@ export default function StartPage() {
   } | null>(null);
   const loadingRoundRef = useRef(0);
   const handledRoundKeyRef = useRef<string | null>(null);
+  const { settings, recordCompletedGame } = useUserSettings();
 
   const playerId = typeof window !== "undefined" ? getPlayerId() : "";
 
@@ -111,6 +112,7 @@ export default function StartPage() {
     handledRoundKeyRef.current = roundKey;
 
     const won = room.winner === playerId;
+    recordCompletedGame(room, playerId);
     const nextProgress = won ? recordGenreWin(currentGenre) : recordGenreFailure(currentGenre);
     setRoundOutcome({
       won,
@@ -118,12 +120,12 @@ export default function StartPage() {
       difficultyAfter: nextProgress.currentDifficulty,
       streakAfter: nextProgress.streak,
     });
-  }, [currentGenre, playerId, room]);
+  }, [currentGenre, playerId, recordCompletedGame, room]);
 
   async function ensureRoom(): Promise<RoomState> {
     if (room) return room;
     const created = await api<{ room: RoomState }>("/api/room/create", {
-      hostName: "Player",
+      hostName: settings.displayName,
       mode: "solo",
     });
     setRoom(created.room);
@@ -202,7 +204,6 @@ export default function StartPage() {
           <Link href="/start" className="text-parchment/60 hover:text-parchment text-sm">
             {t.back}
           </Link>
-          <SettingsMenu tutorialHref={currentGenre ? `/how-to-play?genre=${encodeURIComponent(currentGenre)}` : "/how-to-play"} />
         </header>
 
         {!inGame && !loading && (

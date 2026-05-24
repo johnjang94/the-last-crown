@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { api, apiGet, getPlayerId, speakNarration, subscribeRoom } from "@/lib/client";
@@ -14,6 +14,7 @@ import CoronationModal from "@/components/CoronationModal";
 import GenreTutorialModal from "@/components/GenreTutorialModal";
 import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
 import { clearActiveSession, writeActiveSession } from "@/lib/activeSession";
+import { useUserSettings } from "@/contexts/UserSettingsContext";
 
 const fade = {
   initial: { opacity: 0 },
@@ -32,8 +33,8 @@ type AnswerResult = {
 
 export default function PlayPage() {
   const params = useParams<{ code: string }>();
+  const router = useRouter();
   const code = (params.code || "").toUpperCase();
-  const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +45,10 @@ export default function PlayPage() {
   const announcedRef = useRef<Set<string>>(new Set());
   const [now, setNow] = useState(Date.now());
   const [exitOpen, setExitOpen] = useState(false);
+  const [waitingLeaveOpen, setWaitingLeaveOpen] = useState(false);
   const [tutorialGenre, setTutorialGenre] = useState<GenreName | null>(null);
   const { t } = useT();
+  const { settings, recordCompletedGame } = useUserSettings();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -104,36 +107,35 @@ export default function PlayPage() {
     if (!room || !joined) return;
     if (room.storedPhase === "ended") {
       clearActiveSession();
+      recordCompletedGame(room, getPlayerId());
       return;
     }
     writeActiveSession({ code: room.code, path: `/play/${room.code}`, role: "player" });
-  }, [joined, room]);
+  }, [joined, recordCompletedGame, room]);
 
   if (!joined) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
-        <Link href="/" className="absolute top-6 left-6 text-parchment/60 text-sm">{t.home}</Link>
         <h2 className="text-3xl text-accent font-display">{t.joinRoomTitle}</h2>
         <div className="mt-2 text-accent text-2xl tracking-[0.4em]">{code}</div>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t.yourName}
-          className="mt-8 bg-parchment/10 rounded px-4 py-3 text-parchment outline-none border border-parchment/15 w-64"
-        />
+        <div className="mt-8 w-72 rounded-2xl border border-parchment/15 bg-parchment/10 px-4 py-3 text-center text-parchment">
+          {settings.displayName}
+        </div>
+        <p className="mt-3 text-center text-sm text-parchment/60">
+          Change your name from Setting → My Profile.
+        </p>
         {error && <div className="mt-3 text-crimson text-sm">{error}</div>}
         <button
           onClick={async () => {
             try {
-              const { room: r } = await api<{ room: RoomState }>("/api/room/join", { code, name });
+              const { room: r } = await api<{ room: RoomState }>("/api/room/join", { code, name: settings.displayName });
               setRoom(r);
               setJoined(true);
             } catch (e: any) {
               setError(String(e?.message || e));
             }
           }}
-          disabled={!name.trim()}
-          className="mt-6 btn-primary disabled:opacity-40"
+          className="mt-6 btn-primary"
         >
           {t.join}
         </button>
@@ -159,6 +161,14 @@ export default function PlayPage() {
             <ul className="mt-6 space-y-1 text-parchment/80">
               {room.players.map((p) => <li key={p.id}>{p.name}</li>)}
             </ul>
+            {room.players.length === 1 && (
+              <button
+                onClick={() => setWaitingLeaveOpen(true)}
+                className="mt-12 rounded-full border border-parchment/20 bg-parchment/10 px-6 py-3 text-sm text-parchment/85 transition hover:bg-parchment/15"
+              >
+                Leave this waiting hall
+              </button>
+            )}
           </motion.section>
         )}
 
@@ -406,6 +416,33 @@ export default function PlayPage() {
           </motion.section>
         )}
       </AnimatePresence>
+
+      {waitingLeaveOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/80 backdrop-blur">
+          <div className="card max-w-sm w-[90%] text-center">
+            <div className="text-accent text-xs uppercase tracking-widest">Leave waiting hall</div>
+            <p className="mt-3 text-parchment/90">
+              Are you sure you want to end this game and go back to /start/online?
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <button onClick={() => setWaitingLeaveOpen(false)} className="btn-pill">
+                {t.stay}
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api("/api/room/leave", { code });
+                  } catch {}
+                  router.push("/start/online");
+                }}
+                className="btn-primary !py-2 !px-4"
+              >
+                End Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(room.storedPhase === "playing" || room.storedPhase === "ended") && (
         <>

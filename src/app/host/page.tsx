@@ -12,6 +12,7 @@ import ParticipantsModal from "@/components/ParticipantsModal";
 import CoronationModal from "@/components/CoronationModal";
 import GenreTutorialModal from "@/components/GenreTutorialModal";
 import { useT } from "@/contexts/LanguageContext";
+import { useUserSettings } from "@/contexts/UserSettingsContext";
 import { getGenreDisplay, getDifficultyDisplay } from "@/lib/i18n";
 import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
 import type { GenreName } from "@/lib/genres";
@@ -43,6 +44,7 @@ export default function HostPage() {
   const announcedRef = useRef<Set<string>>(new Set());
   const imgLoadedRef = useRef(false);
   const { t } = useT();
+  const { settings } = useUserSettings();
 
   useEffect(() => {
     (async () => {
@@ -66,7 +68,7 @@ export default function HostPage() {
           } catch {}
         }
         const { room } = await api<{ room: RoomState }>("/api/room/create", {
-          hostName: "Host",
+          hostName: "Player",
           mode: "team",
         });
         setRoom(room);
@@ -83,6 +85,13 @@ export default function HostPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!room) return;
+    const me = room.players.find((player) => player.id === getPlayerId());
+    if (!me || me.name === settings.displayName) return;
+    void api("/api/room/rename", { code: room.code, targetId: me.id, name: settings.displayName });
+  }, [room, settings.displayName]);
 
   useEffect(() => {
     if (!room) return;
@@ -169,10 +178,6 @@ export default function HostPage() {
 
   return (
     <div className="min-h-screen w-full">
-      <Link href="/" className="absolute top-6 left-6 text-parchment/60 hover:text-parchment text-sm z-10">
-        {t.home}
-      </Link>
-
       <AnimatePresence mode="wait">
         {room.storedPhase === "lobby" && (
           <LobbyScreen
