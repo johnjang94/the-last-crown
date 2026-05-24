@@ -7,10 +7,15 @@ import { GENRES } from "@/lib/genres";
 import { DIFFICULTIES } from "@/lib/difficulties";
 import { derivePhase, fmt } from "@/lib/phase";
 import type { Difficulty, Mode, RoomState } from "@/types/game";
-import { api, getPlayerId, speakOpenAI, subscribeRoom } from "@/lib/client";
+import { api, apiGet, getPlayerId, speakNarration, subscribeRoom } from "@/lib/client";
 import ParticipantsModal from "@/components/ParticipantsModal";
+import CoronationModal from "@/components/CoronationModal";
+import GenreTutorialModal from "@/components/GenreTutorialModal";
 import { useT } from "@/contexts/LanguageContext";
 import { getGenreDisplay, getDifficultyDisplay } from "@/lib/i18n";
+import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
+import type { GenreName } from "@/lib/genres";
+import { clearActiveSession, readActiveSession, writeActiveSession } from "@/lib/activeSession";
 
 const fade = {
   initial: { opacity: 0 },
@@ -34,6 +39,7 @@ export default function HostPage() {
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [mode, setMode] = useState<Mode>("team");
+  const [pendingTutorialGenre, setPendingTutorialGenre] = useState<GenreName | null>(null);
   const announcedRef = useRef<Set<string>>(new Set());
   const imgLoadedRef = useRef(false);
   const { t } = useT();
@@ -42,6 +48,23 @@ export default function HostPage() {
     (async () => {
       try {
         const playerId = getPlayerId();
+        const session = readActiveSession();
+        if (session?.role === "host") {
+          try {
+            const { room } = await apiGet<{ room: RoomState }>(`/api/room/${session.code}`);
+            if (room && room.hostId === playerId && room.storedPhase !== "ended") {
+              setRoom(room);
+              setMode(room.mode);
+              const subs = subscribeRoom(room.code, null, playerId, {
+                onState: (next) => {
+                  setRoom(next);
+                  setMode(next.mode);
+                },
+              });
+              return () => subs.unsubscribe();
+            }
+          } catch {}
+        }
         const { room } = await api<{ room: RoomState }>("/api/room/create", {
           hostName: "Host",
           mode: "team",
@@ -60,6 +83,15 @@ export default function HostPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!room) return;
+    if (room.storedPhase === "ended") {
+      clearActiveSession();
+      return;
+    }
+    writeActiveSession({ code: room.code, path: "/host", role: "host" });
+  }, [room]);
 
   useEffect(() => {
     if (!room) return;
@@ -85,12 +117,12 @@ export default function HostPage() {
       if (announcedRef.current.has(key)) return;
       announcedRef.current.add(key);
       if (room.storedPhase === "playing" && d.phase === "thinking") {
-        speakOpenAI("The round begins now.");
+        speakNarration("The round begins now.");
       }
-      if (d.phase === "active") speakOpenAI("You may now ask questions and attempt answers.");
-      if (d.phase === "bonus1") speakOpenAI("A new bonus keyword is now revealed.");
-      if (d.phase === "bonus2") speakOpenAI("The final bonus keyword is now revealed.");
-      if (d.phase === "ended" && room.winner != null) speakOpenAI("The round has been decided.");
+      if (d.phase === "active") speakNarration("You may now ask questions and attempt answers.");
+      if (d.phase === "bonus1") speakNarration("A new bonus keyword is now revealed.");
+      if (d.phase === "bonus2") speakNarration("The final bonus keyword is now revealed.");
+      if (d.phase === "ended" && room.winner != null) speakNarration("The round has been decided.");
     };
     tick();
     const t = setInterval(tick, 1000);
@@ -162,7 +194,14 @@ export default function HostPage() {
               setSelectedGenre(g);
               api("/api/room/select", { code: room.code, genre: g });
             }}
-            onContinue={() => api("/api/room/phase", { code: room.code, phase: "difficulty" })}
+            onContinue={() => {
+              if (!selectedGenre) return;
+              if (hasSeenGenreTutorial(selectedGenre as GenreName)) {
+                api("/api/room/phase", { code: room.code, phase: "difficulty" });
+                return;
+              }
+              setPendingTutorialGenre(selectedGenre as GenreName);
+            }}
           />
         )}
 
@@ -207,6 +246,20 @@ export default function HostPage() {
         room={room}
         onRename={(id, name) => api("/api/room/rename", { code: room.code, targetId: id, name })}
       />
+
+      {pendingTutorialGenre && (
+        <GenreTutorialModal
+          genre={pendingTutorialGenre}
+          title={t.tutorialAutoTitle}
+          description={t.tutorialAutoDesc}
+          ctaLabel={t.tutorialStart}
+          onContinue={() => {
+            markGenreTutorialSeen(pendingTutorialGenre);
+            setPendingTutorialGenre(null);
+            api("/api/room/phase", { code: room.code, phase: "difficulty" });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -450,16 +503,16 @@ function GameScreen({ room }: { room: RoomState }) {
     if (announcedTimerRef.current.has(key)) return;
     announcedTimerRef.current.add(key);
     if (d.timer.kind === "next_keyword" && d.timer.nth === 1) {
-      speakOpenAI("Five minutes are up. The next bonus keyword arrives in three minutes.");
+      speakNarration("Five minutes are up. The next bonus keyword arrives in three minutes.");
     }
     if (d.timer.kind === "bonus_reveal" && d.timer.nth === 1) {
-      speakOpenAI(`An additional keyword is now revealed: ${d.timer.keyword}.`);
+      speakNarration(`An additional keyword is now revealed: ${d.timer.keyword}.`);
     }
     if (d.timer.kind === "next_keyword" && d.timer.nth === 2) {
-      speakOpenAI("The final bonus keyword will be revealed in three minutes.");
+      speakNarration("The final bonus keyword will be revealed in three minutes.");
     }
     if (d.timer.kind === "bonus_reveal" && d.timer.nth === 2) {
-      speakOpenAI(`The final keyword is now revealed: ${d.timer.keyword}.`);
+      speakNarration(`The final keyword is now revealed: ${d.timer.keyword}.`);
     }
   }, [d.timer]);
 
@@ -671,13 +724,14 @@ function GameScreen({ room }: { room: RoomState }) {
 }
 
 function LoadingArt() {
+  const { t } = useT();
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
       <svg className="w-7 h-7 animate-spin text-accent/60" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
       </svg>
-      <span className="text-parchment/40 text-[10px] text-center px-2">Creating image…</span>
+      <span className="text-parchment/40 text-[10px] text-center px-2">{t.preparingVisual}</span>
     </div>
   );
 }
@@ -736,6 +790,7 @@ function ExitGameModal({ open, onClose }: { open: boolean; onClose: () => void }
 function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"] }) {
   const { t } = useT();
   const baseNum = "text-4xl sm:text-5xl font-display tabular-nums";
+  if (timer.kind === "open") return null;
   if (timer.kind === "thinking") {
     return (
       <div className="text-center">
@@ -762,12 +817,7 @@ function TimerWidget({ timer }: { timer: ReturnType<typeof derivePhase>["timer"]
       </div>
     );
   }
-  return (
-    <div className="text-center">
-      <div className="text-parchment/40 text-xs uppercase tracking-widest">Time</div>
-      <div className={`${baseNum} text-parchment/50`}>— : —</div>
-    </div>
-  );
+  return null;
 }
 
 function ScoreBox({
@@ -790,26 +840,5 @@ function ScoreBox({
 }
 
 function EndModal({ room, solution }: { room: RoomState; solution: string }) {
-  const { t } = useT();
-  let title = t.noWinner;
-  if (room.winner != null) {
-    if (typeof room.winner === "number") title = t.teamWins(room.winner + 1);
-    else {
-      const player = room.players.find((entry) => entry.id === room.winner);
-      title = player ? t.playerWins(player.name) : t.winner;
-    }
-  }
-  return (
-    <div className="fixed inset-0 bg-ink/80 backdrop-blur flex items-center justify-center z-50">
-      <div className="card max-w-md text-center">
-        <div className="text-accent text-xs uppercase tracking-widest">{title}</div>
-        <p className="mt-3 text-parchment/90">{solution}</p>
-        <div className="mt-6 flex gap-3 justify-center">
-          <Link href="/" className="btn-primary !py-2 !px-4">
-            {t.newGame}
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <CoronationModal room={room} solution={solution} />;
 }

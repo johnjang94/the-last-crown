@@ -4,7 +4,7 @@ import type { Scenario } from "@/types/game";
 
 async function client() {
   const apiKey = await getKey("ANTHROPIC_API_KEY");
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set. Configure it in Settings.");
+  if (!apiKey) throw new Error("A required service key is not set. Configure it in Settings.");
   return new Anthropic({ apiKey });
 }
 
@@ -83,9 +83,6 @@ export async function judgeAnswer(
   const requiredBonus = scenario.bonusKeywords.slice(0, revealedBonus);
   const allKeywords = [...requiredBase, ...requiredBonus];
 
-  // ── Cheap local pre-checks ────────────────────────────────────────────
-  // Rules 1 + 2 from the original prompt are mechanical — handle them in
-  // code so we never burn LLM tokens on obviously-incomplete attempts.
   const lower = answer.toLowerCase();
   const missing = allKeywords.filter((k) => !lower.includes(k.toLowerCase()));
   if (missing.length > 0) {
@@ -95,7 +92,6 @@ export async function judgeAnswer(
     return { verdict: "not_true", message: "That is not true." };
   }
 
-  // ── Only the semantic match (rule 3) actually needs the LLM ───────────
   const c = await client();
   const prompt = `You are judging a player's answer in Mystery Champion.
 Case briefing: ${scenario.briefing}

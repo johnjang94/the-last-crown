@@ -1,4 +1,3 @@
-// Minimal app-shell service worker for PWA installability + offline shell.
 const CACHE = "mystery-shell-v1";
 const SHELL = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
@@ -18,7 +17,6 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  // Bypass non-GET, sockets, API, and TTS requests entirely.
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.pathname.startsWith("/socket.io")) return;

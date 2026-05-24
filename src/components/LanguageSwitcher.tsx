@@ -1,12 +1,38 @@
 "use client";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { LOCALES } from "@/lib/i18n";
 import { useT } from "@/contexts/LanguageContext";
 
 export default function LanguageSwitcher() {
   const { locale, setLocale } = useT();
   const [open, setOpen] = useState(false);
-  const current = LOCALES.find((l) => l.code === locale)!;
+  const pathname = usePathname();
+  const current = LOCALES.find((l) => l.code === locale) || LOCALES[0];
+
+  if (pathname === "/") {
+    return (
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[70] px-4 w-full max-w-4xl">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {LOCALES.map((l) => (
+            <button
+              key={l.code}
+              onClick={() => setLocale(l.code)}
+              className={
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border transition " +
+                (l.code === locale
+                  ? "bg-accent text-ink border-accent"
+                  : "bg-ink/75 text-parchment/80 border-parchment/20 hover:border-accent/50")
+              }
+            >
+              <span>{l.flag}</span>
+              <span>{l.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed bottom-16 right-4 z-[70]">

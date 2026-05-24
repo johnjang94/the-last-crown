@@ -35,3 +35,12 @@ button {
 .fade-enter-active { opacity: 1; transition: opacity 500ms; }
 .fade-exit { opacity: 1; }
 .fade-exit-active { opacity: 0; transition: opacity 500ms; }
+
+@keyframes fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(5vw, 120vh, 0) rotate(420deg);
+  }
+}

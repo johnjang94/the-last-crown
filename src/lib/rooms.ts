@@ -18,7 +18,6 @@ export async function saveRoom(state: RoomState): Promise<void> {
 
 async function generateCode(): Promise<string> {
   const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  // try a few times then accept
   for (let i = 0; i < 8; i++) {
     let code = "";
     for (let j = 0; j < 4; j++) code += letters[Math.floor(Math.random() * letters.length)];
@@ -34,13 +33,14 @@ export async function createRoom(hostId: string, hostName: string, mode: Mode): 
     code,
     hostId,
     mode,
-    players: [{ id: hostId, name: hostName || "Host", team: null, isHost: true, score: 100 }],
+    players: [{ id: hostId, name: hostName || "Player", team: null, isHost: true, score: 0 }],
     storedPhase: "lobby",
     genre: null,
     difficulty: null,
     scenario: null,
-    scores: [100, 100],
+    scores: [0, 0],
     activity: [],
+    roundHintUsers: [],
     startedAt: null,
     winner: null,
   };
@@ -64,7 +64,6 @@ export async function addPlayer(code: string, id: string, name: string): Promise
     if (!r.players.find((p) => p.id === id)) {
       r.players.push({ id, name: name || "Player", team: null, score: 100 });
     } else {
-      // returning player — update name
       const p = r.players.find((q) => q.id === id)!;
       if (name) p.name = name;
     }
@@ -84,6 +83,13 @@ export async function removePlayer(code: string, id: string) {
   });
 }
 
+export async function setHostPlayable(code: string) {
+  return update(code, (r) => {
+    const host = r.players.find((player) => player.id === r.hostId);
+    if (host) host.isHost = false;
+  });
+}
+
 export async function setMode(code: string, mode: Mode) {
   return update(code, (r) => {
     r.mode = mode;
@@ -93,10 +99,8 @@ export async function setMode(code: string, mode: Mode) {
 export async function autoTeams(code: string) {
   return update(code, (r) => {
     if (r.mode === "solo") {
-      // every player is their own scoring entity; no teams
       r.players.forEach((p) => (p.team = null));
     } else {
-      // exclude the host from team play
       const playable = r.players.filter((p) => !p.isHost);
       const shuffled = [...playable].sort(() => Math.random() - 0.5);
       shuffled.forEach((p, i) => {
@@ -129,15 +133,11 @@ export async function setDifficulty(code: string, difficulty: Difficulty) {
 
 export async function setScenario(code: string, scenario: Scenario) {
   return update(code, (r) => {
-    // Flip the room into "playing" the moment the scenario is ready. The
-    // timer starts here so that the countdown begins exactly when players
-    // arrive at the game page (image generation continues in the background).
     r.scenario = scenario;
     r.storedPhase = "playing";
     r.startedAt = Date.now();
-    r.scores = [100, 100];
-    r.players.forEach((p) => (p.score = 100));
     r.activity = [];
+    r.roundHintUsers = [];
     r.winner = null;
   });
 }
@@ -159,6 +159,14 @@ export async function pushActivity(code: string, text: string) {
     const e: ActivityEntry = { id: rid(), ts: Date.now(), text };
     r.activity.unshift(e);
     if (r.activity.length > 50) r.activity.length = 50;
+  });
+}
+
+export async function markHintUsed(code: string, playerId: string) {
+  return update(code, (r) => {
+    if (!r.roundHintUsers.includes(playerId)) {
+      r.roundHintUsers.push(playerId);
+    }
   });
 }
 

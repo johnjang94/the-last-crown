@@ -3,13 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { api, apiGet, getPlayerId, speakOpenAI, subscribeRoom } from "@/lib/client";
+import { api, apiGet, getPlayerId, speakNarration, subscribeRoom } from "@/lib/client";
 import { derivePhase, fmt, type TimerDisplay } from "@/lib/phase";
 import type { RoomState } from "@/types/game";
-import { GENRES } from "@/lib/genres";
+import { GENRES, type GenreName } from "@/lib/genres";
 import { DIFFICULTIES } from "@/lib/difficulties";
 import { useT } from "@/contexts/LanguageContext";
 import { getGenreDisplay, getDifficultyDisplay } from "@/lib/i18n";
+import CoronationModal from "@/components/CoronationModal";
+import GenreTutorialModal from "@/components/GenreTutorialModal";
+import { hasSeenGenreTutorial, markGenreTutorialSeen } from "@/lib/tutorials";
+import { clearActiveSession, writeActiveSession } from "@/lib/activeSession";
 
 const fade = {
   initial: { opacity: 0 },
@@ -40,6 +44,7 @@ export default function PlayPage() {
   const announcedRef = useRef<Set<string>>(new Set());
   const [now, setNow] = useState(Date.now());
   const [exitOpen, setExitOpen] = useState(false);
+  const [tutorialGenre, setTutorialGenre] = useState<GenreName | null>(null);
   const { t } = useT();
 
   useEffect(() => {
@@ -47,9 +52,6 @@ export default function PlayPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Pre-fetch the current room state so the player can see who's there.
-  // Also auto-rejoin if this player's ID is already in the room (e.g. after
-  // accidentally navigating away mid-game).
   useEffect(() => {
     apiGet<{ room: RoomState }>(`/api/room/${code}`)
       .then((r) => {
@@ -61,7 +63,6 @@ export default function PlayPage() {
       .catch(() => {});
   }, [code]);
 
-  // Subscribe (after join) for state + hints + answer results.
   const myPlayerId = typeof window !== "undefined" ? getPlayerId() : "";
   const myTeamValue = room?.players.find((p) => p.id === myPlayerId)?.team ?? null;
   useEffect(() => {
@@ -82,14 +83,31 @@ export default function PlayPage() {
     const key = d.timer.kind + (d.timer.kind === "bonus_reveal" ? String(d.timer.nth) : "");
     if (announcedRef.current.has(key)) return;
     announcedRef.current.add(key);
-    if (d.timer.kind === "thinking") speakOpenAI("Five minute countdown begins now.");
+    if (d.timer.kind === "thinking") speakNarration("Five minute countdown begins now.");
     if (d.timer.kind === "next_keyword" && d.timer.nth === 1)
-      speakOpenAI("You may now ask questions and attempt answers.");
+      speakNarration("You may now ask questions and attempt answers.");
     if (d.timer.kind === "bonus_reveal" && d.timer.nth === 1)
-      speakOpenAI(`An additional keyword is now revealed: ${d.timer.keyword}.`);
+      speakNarration(`An additional keyword is now revealed: ${d.timer.keyword}.`);
     if (d.timer.kind === "bonus_reveal" && d.timer.nth === 2)
-      speakOpenAI(`The final keyword is now revealed: ${d.timer.keyword}.`);
+      speakNarration(`The final keyword is now revealed: ${d.timer.keyword}.`);
   }, [room, joined, now]);
+
+  useEffect(() => {
+    if (!room?.genre || !joined) return;
+    if (room.storedPhase !== "playing") return;
+    const genre = room.genre as GenreName;
+    if (hasSeenGenreTutorial(genre)) return;
+    setTutorialGenre(genre);
+  }, [joined, room?.genre, room?.storedPhase]);
+
+  useEffect(() => {
+    if (!room || !joined) return;
+    if (room.storedPhase === "ended") {
+      clearActiveSession();
+      return;
+    }
+    writeActiveSession({ code: room.code, path: `/play/${room.code}`, role: "player" });
+  }, [joined, room]);
 
   if (!joined) {
     return (
@@ -270,7 +288,7 @@ export default function PlayPage() {
                 <p className="mt-2 text-parchment/80 text-sm">{room.scenario.question}</p>
                 {room.genre === "Visual Match" && (
                   <p className="mt-2 text-parchment/60 text-xs">
-                    Match the OpenAI-generated 3D maze scene to the labeled 2D maze board.
+                    Match the 3D maze scene to the labeled 2D maze board.
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -410,6 +428,23 @@ export default function PlayPage() {
             </div>
           )}
         </>
+      )}
+
+      {room.storedPhase === "ended" && room.scenario && (
+        <CoronationModal room={room} solution={room.scenario.solutionAnswer} viewerPlayerId={playerId} />
+      )}
+
+      {tutorialGenre && (
+        <GenreTutorialModal
+          genre={tutorialGenre}
+          title={t.tutorialAutoTitle}
+          description={t.tutorialAutoDesc}
+          ctaLabel={t.tutorialContinue}
+          onContinue={() => {
+            markGenreTutorialSeen(tutorialGenre);
+            setTutorialGenre(null);
+          }}
+        />
       )}
     </div>
   );

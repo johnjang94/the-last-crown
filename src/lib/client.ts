@@ -112,7 +112,7 @@ export function speakBrowser(text: string) {
   window.speechSynthesis.speak(u);
 }
 
-export async function speakOpenAI(text: string) {
+export async function speakNarration(text: string) {
   try {
     const r = await fetch("/api/tts", {
       method: "POST",

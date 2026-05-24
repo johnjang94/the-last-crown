@@ -4,7 +4,7 @@ import type { Difficulty, Scenario } from "@/types/game";
 
 async function client() {
   const apiKey = await getKey("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not set. Configure it in Settings.");
+  if (!apiKey) throw new Error("A required service key is not set. Configure it in Settings.");
   return new OpenAI({ apiKey });
 }
 
@@ -53,9 +53,9 @@ export async function generateScenario(genre: string, difficulty: Difficulty): P
 Create tight mobile-friendly game passages and clue sets.
 Return strict JSON only.
 - Always create exactly 4 photos and exactly 2 bonus keywords.
-- Make every photo prompt visually rich and usable for image generation.
+- Make every photo prompt visually rich and usable for the round visuals.
 - Keep the hidden answer fair for the selected difficulty.
-- "Number-to-Letter Conversion" and "Guess" must include 4 multiple-choice answers.
+- "Codebreaker" and "Final Pick" must include 4 multiple-choice answers.
 - Other game types should set "choices" to null.`;
 
   const prompt = `Generate a game with:
@@ -79,11 +79,12 @@ Return JSON in this exact shape:
 
 Game type guidance:
 - Riddles: the player needs to guess the answer from a layered clue.
-- Guess: the answer should sound obvious at first, then grow uncertain after discussion.
+- Final Pick: present a short story or situation, then offer 4 options where only one still feels right after every clue.
 - Visual Match: frame the puzzle around matching a 3D maze-like view with a labeled 2D maze.
-- Number-to-Letter Conversion: use a story-led decoding puzzle with multiple-choice answers.
+- Codebreaker: use a story-led decoding puzzle with multiple-choice answers.
 
 Difficulty guidance:
+- novice: extra clear and forgiving
 - easy: straightforward
 - medium: balanced
 - hard: deceptive but fair
@@ -118,6 +119,36 @@ export type Judgement = {
   verdict: "correct" | "not_true" | "unknown";
   message: string;
 };
+
+function hintInstructionByDifficulty(difficulty: Difficulty) {
+  switch (difficulty) {
+    case "novice":
+      return `This is NOVICE difficulty.
+- Give a very direct hint that is almost the answer.
+- You may strongly narrow the answer to a single obvious idea.
+- Do not literally repeat the exact hidden answer text unless the player's question already says it.`;
+    case "easy":
+      return `This is EASY difficulty.
+- Give a highly revealing hint that makes the answer obvious to most players.
+- You may point directly at the core concept, object, or interpretation.
+- Stay one tiny step short of quoting the hidden answer verbatim.`;
+    case "medium":
+      return `This is MEDIUM difficulty.
+- Give a useful, fair hint that genuinely helps.
+- Clarify direction, remove one false path, or spotlight the key relationship.
+- Do not make the answer obvious in one sentence.`;
+    case "hard":
+      return `This is HARD difficulty.
+- Give a restrained but meaningful hint.
+- Nudge the player toward the right reasoning pattern without collapsing the puzzle.
+- Avoid naming the core answer directly or reducing it to one obvious option.`;
+    case "challenger":
+      return `This is CHALLENGER difficulty.
+- Give a deliberately sparse and slippery hint.
+- The hint should feel technically helpful but still leave the puzzle very difficult.
+- Favor abstract guidance, tension, contrast, or what to re-examine over concrete answer content.`;
+  }
+}
 
 export async function judgeAnswer(
   scenario: Scenario,
@@ -158,7 +189,11 @@ Return:
   }
 }
 
-export async function answerQuestion(scenario: Scenario, question: string): Promise<string> {
+export async function answerQuestion(
+  scenario: Scenario,
+  question: string,
+  difficulty: Difficulty
+): Promise<string> {
   const c = await client();
   const res = await c.chat.completions.create({
     model: await TEXT_MODEL(),
@@ -166,8 +201,12 @@ export async function answerQuestion(scenario: Scenario, question: string): Prom
     messages: [
       {
         role: "system",
-        content:
-          "You are the game master of The Last Crown. Give a short hint in plain text, never reveal the full answer, and reply with 'That is not relevant.' if the question is off-topic.",
+        content: `You are the game master of The Last Crown.
+Give a short hint in plain text.
+Reply with "That is not relevant." if the question is off-topic.
+Never break character.
+
+${hintInstructionByDifficulty(difficulty)}`,
       },
       {
         role: "user",
@@ -176,6 +215,7 @@ Question: ${scenario.question}
 Visible answer options: ${scenario.choices?.join(" | ") || "none"}
 Hidden answer: ${scenario.solutionAnswer}
 Keywords: ${scenario.solutionKeywords.join(", ")}
+Difficulty: ${difficulty}
 
 Player question: ${question}`,
       },
@@ -194,5 +234,5 @@ export async function generateGameImage(prompt: string): Promise<string> {
   const image = result.data?.[0] as any;
   if (image?.url) return image.url;
   if (image?.b64_json) return `data:image/png;base64,${image.b64_json}`;
-  throw new Error("OpenAI image generation returned no image.");
+  throw new Error("Visual creation returned no image.");
 }

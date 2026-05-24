@@ -1,16 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import dynamic from "next/dynamic";
+import { getResumableSession } from "@/lib/activeSession";
 import { useT } from "@/contexts/LanguageContext";
 
-const QRScanner = dynamic(() => import("@/components/QRScanner"), { ssr: false });
-const InstallButton = dynamic(() => import("@/components/InstallButton"), { ssr: false });
-
 export default function HomePage() {
-  const [scanOpen, setScanOpen] = useState(false);
   const { t } = useT();
+  const [resumePath, setResumePath] = useState<string | null>(null);
+
+  useEffect(() => {
+    getResumableSession().then((session) => setResumePath(session?.path || null));
+  }, []);
 
   return (
     <motion.main
@@ -30,33 +31,15 @@ export default function HomePage() {
 
       <p className="mt-6 text-parchment/60 text-center max-w-xl">{t.tagline}</p>
 
-      <Link href="/host" className="btn-primary mt-12 text-lg">
+      <Link href="/start" className="btn-primary mt-12 text-lg">
         {t.getStarted}
       </Link>
 
-      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-6 px-6 flex-wrap">
-        <Link href="/how-to-play" className="btn-ghost">
-          {t.howToPlay}
+      {resumePath && (
+        <Link href={resumePath} className="mt-4 btn-pill !py-3 !px-6 text-sm">
+          Resume Game
         </Link>
-
-        <button
-          onClick={() => setScanOpen(true)}
-          className="flex items-center gap-2 btn-ghost"
-          aria-label="Scan QR code to join a room"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <path d="M14 14h1v1h-1zM18 14h1v1h-1zM16 16h1v1h-1zM14 18h1v1h-1zM18 18h1v1h-1zM20 16h1v1h-1zM20 20h1v1h-1z" fill="currentColor" stroke="none" />
-          </svg>
-          {t.joinRoom}
-        </button>
-
-        <InstallButton />
-      </div>
-
-      <QRScanner open={scanOpen} onClose={() => setScanOpen(false)} />
+      )}
     </motion.main>
   );
 }

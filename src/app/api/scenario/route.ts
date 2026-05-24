@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
     await setGenre(upper, genre);
     await setDifficulty(upper, difficulty);
 
-    // Text-only — images are generated per-photo via /api/room/image after this returns.
     const scenario = await generateScenario(genre, difficulty);
 
     const room = await setScenario(upper, scenario);

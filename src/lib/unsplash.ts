@@ -1,8 +1,4 @@
 import { getKey } from "./keys";
-
-// Fetches a single landscape/square photo URL from Unsplash matching the
-// given keyword. Falls back to `null` on any failure so callers can show a
-// placeholder rather than crashing the game.
 export async function fetchUnsplashImage(keyword: string): Promise<string | null> {
   const accessKey = await getKey("UNSPLASH_ACCESS_KEY");
   if (!accessKey) throw new Error("UNSPLASH_ACCESS_KEY is not set. Configure it in Settings.");
@@ -26,8 +22,6 @@ export async function fetchUnsplashImage(keyword: string): Promise<string | null
   const json: any = await res.json();
   const results: any[] = Array.isArray(json?.results) ? json.results : [];
   if (results.length === 0) return null;
-  // Pick a random photo from the top results so repeated keywords don't always
-  // resolve to the same image across rooms.
   const pick = results[Math.floor(Math.random() * results.length)];
   return pick?.urls?.regular || pick?.urls?.small || pick?.urls?.full || null;
 }

@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/contexts/LanguageContext";
 
 type InstallState =
-  | "hidden"       // already installed, or not a PWA-capable browser
-  | "prompt"       // Android/Chrome — native prompt available
-  | "ios"          // iOS Safari — must guide user manually
-  | "installed";   // user just installed
+  | "hidden"
+  | "prompt"
+  | "ios"
+  | "installed";
 
 function isIosSafari(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -30,7 +30,7 @@ export default function InstallButton() {
   const [iosOpen, setIosOpen] = useState(false);
 
   useEffect(() => {
-    if (isInStandaloneMode()) return; // already running as installed app
+    if (isInStandaloneMode()) return;
 
     if (isIosSafari()) {
       setState("ios");
@@ -76,7 +76,6 @@ export default function InstallButton() {
           onClick={() => setIosOpen((v) => !v)}
           className="flex items-center gap-2 btn-ghost text-sm"
         >
-          {/* Download icon */}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v13M7 11l5 5 5-5" />
             <path d="M5 21h14" />
@@ -93,7 +92,6 @@ export default function InstallButton() {
               transition={{ duration: 0.2 }}
               className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-64 bg-ink border border-parchment/20 rounded-xl p-4 shadow-2xl text-center"
             >
-              {/* Arrow pointing down */}
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 bg-ink border-r border-b border-parchment/20 rotate-45" />
               <div className="flex justify-center mb-2 text-accent">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -109,7 +107,6 @@ export default function InstallButton() {
     );
   }
 
-  // state === "prompt"
   return (
     <motion.button
       initial={{ opacity: 0, y: 8 }}

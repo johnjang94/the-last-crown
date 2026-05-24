@@ -1,4 +1,3 @@
-// Server-side Pusher client. Used by API routes to broadcast room state.
 import Pusher from "pusher";
 
 let _pusher: Pusher | null = null;

@@ -5,9 +5,9 @@ export const GENRES = [
     description: "Read the clue, discuss the twist, and guess the hidden answer.",
   },
   {
-    name: "Guess",
+    name: "Final Pick",
     emoji: "🎯",
-    description: "Follow the hints, weigh the obvious answer, and decide what still fits.",
+    description: "Listen to the story, test the options, and make the final pick that still fits every clue.",
   },
   {
     name: "Visual Match",
@@ -15,9 +15,9 @@ export const GENRES = [
     description: "Compare a 3D maze view against a labeled 2D maze map.",
   },
   {
-    name: "Number-to-Letter Conversion",
+    name: "Codebreaker",
     emoji: "🔐",
-    description: "Decode the story clue and choose the answer that truly matches it.",
+    description: "Break the code hidden inside the prompt and find the answer that survives the pattern.",
   },
 ] as const;
 

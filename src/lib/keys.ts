@@ -1,5 +1,3 @@
-// Reads game keys/settings from KV first, falling back to env vars.
-// Lets the in-app /settings page override Vercel env vars at runtime.
 import { kv } from "./kv";
 
 const SETTINGS_KEY = "settings:keys";

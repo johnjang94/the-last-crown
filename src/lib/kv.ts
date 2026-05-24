@@ -1,11 +1,7 @@
-// Thin wrapper around @vercel/kv. Falls back to an in-memory store when KV
-// env vars are missing (useful for `next dev` without a KV instance).
 import { kv as vercelKv } from "@vercel/kv";
 
 const haveKv = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 
-// Use globalThis so the map survives Next.js hot-module-replacement in dev.
-// Without this, every hot-reload wipes the map and rooms vanish mid-session.
 const g = globalThis as any;
 if (!g.__mc_kv) g.__mc_kv = new Map<string, string>();
 const memory: Map<string, string> = g.__mc_kv;

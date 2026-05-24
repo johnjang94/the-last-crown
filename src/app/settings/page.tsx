@@ -6,11 +6,11 @@ import { motion } from "framer-motion";
 type SettingsInfo = Record<string, { set: boolean; preview: string }>;
 
 const FIELDS = [
-  { key: "OPENAI_API_KEY", label: "OpenAI API Key", secret: true },
-  { key: "OPENAI_TEXT_MODEL", label: "OpenAI Text Model", placeholder: "gpt-4.1-mini" },
-  { key: "OPENAI_IMAGE_MODEL", label: "OpenAI Image Model", placeholder: "gpt-image-1" },
-  { key: "OPENAI_TTS_MODEL", label: "OpenAI TTS Model", placeholder: "gpt-4o-mini-tts" },
-  { key: "OPENAI_TTS_VOICE", label: "OpenAI TTS Voice", placeholder: "alloy" },
+  { key: "OPENAI_API_KEY", label: "Round Content Key", secret: true },
+  { key: "OPENAI_TEXT_MODEL", label: "Round Text Model", placeholder: "text-model-name" },
+  { key: "OPENAI_IMAGE_MODEL", label: "Visual Model", placeholder: "image-model-name" },
+  { key: "OPENAI_TTS_MODEL", label: "Narration Model", placeholder: "voice-model-name" },
+  { key: "OPENAI_TTS_VOICE", label: "Narration Voice", placeholder: "voice-name" },
 ];
 
 export default function SettingsPage() {

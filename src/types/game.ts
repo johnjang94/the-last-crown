@@ -1,12 +1,12 @@
 export type Mode = "team" | "solo";
-export type Difficulty = "easy" | "medium" | "hard" | "challenger";
+export type Difficulty = "novice" | "easy" | "medium" | "hard" | "challenger";
 
 export type Player = {
   id: string;
   name: string;
-  team: 0 | 1 | null; // null in solo mode
+  team: 0 | 1 | null;
   isHost?: boolean;
-  score: number; // used in solo mode; team scores live on RoomState.scores
+  score: number;
 };
 
 export type Photo = {
@@ -18,18 +18,13 @@ export type Photo = {
 export type Scenario = {
   briefing: string;
   question: string;
-  photos: Photo[]; // 4
-  bonusKeywords: string[]; // 2
-  solutionKeywords: string[]; // 6 (4 photo + 2 bonus)
+  photos: Photo[];
+  bonusKeywords: string[];
+  solutionKeywords: string[];
   solutionAnswer: string;
   choices?: string[] | null;
 };
-
-// Persistent phase stored in KV. Sub-phases (thinking/active/bonus1/bonus2)
-// are *derived* from startedAt by `derivePhase()`.
 export type StoredPhase = "lobby" | "genre" | "difficulty" | "playing" | "ended";
-
-// Derived phase used by the UI.
 export type Phase =
   | "lobby"
   | "genre"
@@ -51,8 +46,9 @@ export type RoomState = {
   genre: string | null;
   difficulty: Difficulty | null;
   scenario: Scenario | null;
-  scores: [number, number]; // team scores
+  scores: [number, number];
   activity: ActivityEntry[];
+  roundHintUsers: string[];
   startedAt: number | null;
-  winner: 0 | 1 | string | null; // team index or playerId in solo
+  winner: 0 | 1 | string | null;
 };

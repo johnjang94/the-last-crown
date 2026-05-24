@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
     if (!photo)
       return NextResponse.json({ error: "Photo index out of range" }, { status: 400 });
 
-    // Skip if already fetched (e.g. client retried).
     if (photo.imageUrl)
       return NextResponse.json({ imageUrl: photo.imageUrl });
 
