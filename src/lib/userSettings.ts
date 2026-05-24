@@ -14,6 +14,16 @@ export type NotificationSettings = {
   ranking: boolean;
 };
 
+export type NotificationEntry = {
+  id: string;
+  createdAt: number;
+  kind: "message" | "points" | "badge" | "ranking";
+  title: string;
+  body: string;
+  roomCode?: string;
+  read: boolean;
+};
+
 export type GameHistoryEntry = {
   id: string;
   playedAt: number;
@@ -29,6 +39,7 @@ export type GameHistoryEntry = {
 export type UserSettings = {
   displayName: string;
   notifications: NotificationSettings;
+  inbox: NotificationEntry[];
   history: GameHistoryEntry[];
 };
 
@@ -45,6 +56,7 @@ export const defaultUserSettings: UserSettings = {
     badges: true,
     ranking: true,
   },
+  inbox: [],
   history: [],
 };
 
@@ -68,6 +80,7 @@ export function readUserSettings(): UserSettings {
         ...defaultUserSettings.notifications,
         ...(parsed.notifications || {}),
       },
+      inbox: Array.isArray(parsed.inbox) ? parsed.inbox.slice(0, 100) : [],
       history: Array.isArray(parsed.history) ? parsed.history.slice(0, 50) : [],
     };
   } catch {

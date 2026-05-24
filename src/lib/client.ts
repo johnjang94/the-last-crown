@@ -1,6 +1,6 @@
 "use client";
 import Pusher, { Channel } from "pusher-js";
-import type { RoomState } from "@/types/game";
+import type { ChatMessage, RoomState } from "@/types/game";
 
 const PLAYER_ID_KEY = "mc:playerId";
 
@@ -41,6 +41,8 @@ export function subscribeRoom(
   playerId: string,
   handlers: {
     onState?: (s: RoomState) => void;
+    onRoomChat?: (message: ChatMessage) => void;
+    onTeamChat?: (message: ChatMessage) => void;
     onHint?: (h: { askerName: string; question: string; hint: string }) => void;
     onAnswerResult?: (r: {
       askerName: string;
@@ -55,10 +57,12 @@ export function subscribeRoom(
 
   const room = p.subscribe(`room-${code}`);
   if (handlers.onState) room.bind("state", handlers.onState);
+  if (handlers.onRoomChat) room.bind("room-chat", handlers.onRoomChat);
 
   let teamCh: Channel | null = null;
   if (team !== null) {
     teamCh = p.subscribe(`room-${code}-team-${team}`);
+    if (handlers.onTeamChat) teamCh.bind("team-chat", handlers.onTeamChat);
     if (handlers.onHint) teamCh.bind("hint", handlers.onHint);
     if (handlers.onAnswerResult) teamCh.bind("answer-result", handlers.onAnswerResult);
   }

@@ -19,6 +19,12 @@ export async function pushState(code: string, state: unknown) {
   await p.trigger(`room-${code}`, "state", state);
 }
 
+export async function pushRoomEvent(code: string, event: string, payload: unknown) {
+  const p = getPusher();
+  if (!p) return;
+  await p.trigger(`room-${code}`, event, payload);
+}
+
 export async function pushTeamEvent(
   code: string,
   team: 0 | 1 | string,

@@ -36,6 +36,16 @@ export type Phase =
   | "ended";
 
 export type ActivityEntry = { id: string; ts: number; text: string };
+export type ChatScope = "room" | "team";
+export type ChatMessage = {
+  id: string;
+  ts: number;
+  playerId: string;
+  playerName: string;
+  text: string;
+  scope: ChatScope;
+  team: 0 | 1 | null;
+};
 
 export type RoomState = {
   code: string;
@@ -48,6 +58,8 @@ export type RoomState = {
   scenario: Scenario | null;
   scores: [number, number];
   activity: ActivityEntry[];
+  roomChat: ChatMessage[];
+  teamChat: ChatMessage[];
   roundHintUsers: string[];
   startedAt: number | null;
   winner: 0 | 1 | string | null;

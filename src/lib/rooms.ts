@@ -1,4 +1,4 @@
-import type { RoomState, Mode, Scenario, ActivityEntry, Player, Difficulty } from "@/types/game";
+import type { RoomState, Mode, Scenario, ActivityEntry, Player, Difficulty, ChatMessage } from "@/types/game";
 import { kv } from "./kv";
 
 const roomKey = (code: string) => `room:${code}`;
@@ -9,7 +9,15 @@ function rid() {
 
 export async function getRoom(code: string): Promise<RoomState | null> {
   if (!code) return null;
-  return (await kv.get<RoomState>(roomKey(code.toUpperCase()))) || null;
+  const room = (await kv.get<RoomState>(roomKey(code.toUpperCase()))) || null;
+  if (!room) return null;
+  if (!room.roomChat) room.roomChat = ((room as any).chat || []).map((message: ChatMessage) => ({
+    ...message,
+    scope: "room",
+    team: null,
+  }));
+  if (!room.teamChat) room.teamChat = [];
+  return room;
 }
 
 export async function saveRoom(state: RoomState): Promise<void> {
@@ -40,6 +48,8 @@ export async function createRoom(hostId: string, hostName: string, mode: Mode): 
     scenario: null,
     scores: [0, 0],
     activity: [],
+    roomChat: [],
+    teamChat: [],
     roundHintUsers: [],
     startedAt: null,
     winner: null,
@@ -159,6 +169,30 @@ export async function pushActivity(code: string, text: string) {
     const e: ActivityEntry = { id: rid(), ts: Date.now(), text };
     r.activity.unshift(e);
     if (r.activity.length > 50) r.activity.length = 50;
+  });
+}
+
+export async function pushRoomChatMessage(code: string, playerId: string, playerName: string, text: string) {
+  return update(code, (r) => {
+    if (!r.roomChat) r.roomChat = [];
+    const entry: ChatMessage = { id: rid(), ts: Date.now(), playerId, playerName, text, scope: "room", team: null };
+    r.roomChat.push(entry);
+    if (r.roomChat.length > 100) r.roomChat = r.roomChat.slice(-100);
+  });
+}
+
+export async function pushTeamChatMessage(
+  code: string,
+  team: 0 | 1,
+  playerId: string,
+  playerName: string,
+  text: string
+) {
+  return update(code, (r) => {
+    if (!r.teamChat) r.teamChat = [];
+    const entry: ChatMessage = { id: rid(), ts: Date.now(), playerId, playerName, text, scope: "team", team };
+    r.teamChat.push(entry);
+    if (r.teamChat.length > 100) r.teamChat = r.teamChat.slice(-100);
   });
 }
 

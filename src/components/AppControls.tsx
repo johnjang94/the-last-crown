@@ -13,10 +13,11 @@ type SettingsPanel = "menu" | "language" | "profile" | "notification";
 export default function AppControls() {
   const pathname = usePathname();
   const { locale, setLocale, t } = useT();
-  const { settings, setDisplayName, updateNotifications } = useUserSettings();
+  const { settings, setDisplayName, updateNotifications, markInboxRead } = useUserSettings();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<SettingsPanel>("menu");
   const [nameDraft, setNameDraft] = useState(settings.displayName);
+  const unreadCount = settings.inbox.filter((item) => !item.read).length;
 
   useEffect(() => {
     setNameDraft(settings.displayName);
@@ -26,6 +27,10 @@ export default function AppControls() {
     setOpen(false);
     setPanel("menu");
   }, [pathname]);
+
+  useEffect(() => {
+    if (panel === "notification") markInboxRead();
+  }, [markInboxRead, panel]);
 
   if (pathname === "/") {
     return (
@@ -61,10 +66,15 @@ export default function AppControls() {
           </Link>
           <button
             onClick={() => setOpen(true)}
-            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-parchment/20 bg-ink/65 text-parchment/80 backdrop-blur hover:text-parchment"
+            className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-parchment/20 bg-ink/65 text-parchment/80 backdrop-blur hover:text-parchment"
             aria-label="Setting"
           >
             <GearIcon />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-crimson px-1 text-[10px] text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -88,7 +98,7 @@ export default function AppControls() {
                   My Profile
                 </button>
                 <button onClick={() => setPanel("notification")} className="btn-pill !py-3 !px-4 text-left">
-                  Notification
+                  Notification {unreadCount > 0 ? `(${unreadCount})` : ""}
                 </button>
               </div>
             )}
@@ -238,6 +248,31 @@ export default function AppControls() {
                     checked={settings.notifications.ranking}
                     onChange={(checked) => updateNotifications({ ranking: checked })}
                   />
+                </div>
+
+                <div className="mt-6">
+                  <div className="text-accent text-xs uppercase tracking-widest">Recent Alerts</div>
+                  <p className="mt-2 text-xs text-parchment/50">
+                    Message alerts now feed into this list. Email and text delivery preferences are saved, but external sending is not wired yet.
+                  </p>
+                  <div className="mt-3 max-h-56 space-y-3 overflow-auto pr-1">
+                    {settings.inbox.length === 0 ? (
+                      <div className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4 text-sm text-parchment/60">
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      settings.inbox.map((item) => (
+                        <div key={item.id} className="rounded-2xl border border-parchment/10 bg-parchment/5 px-4 py-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-parchment">{item.title}</div>
+                            <div className="text-[11px] text-parchment/50">{new Date(item.createdAt).toLocaleString()}</div>
+                          </div>
+                          <div className="mt-2 text-sm text-parchment/70">{item.body}</div>
+                          {item.roomCode && <div className="mt-2 text-xs text-parchment/50">Room {item.roomCode}</div>}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
